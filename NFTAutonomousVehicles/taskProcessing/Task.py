@@ -11,7 +11,7 @@ class Task:
                  nft: NFT = None):
         self.vehicle = vehicle
         self.solver = solver
-        self.iterations_needed_to_solve = None
+        self.capacity_needed_to_solve = None
 
         self.size_in_megabytes = size_in_megabytes
         self.transfer_rate = transfer_rate
@@ -32,3 +32,5 @@ class TaskStatus(enum.Enum):
     SUBMITTED = 1
     BEING_PROCESSED = 2
     SOLVED = 3
+    PROCESSING_FAILED = 4
+    TASK_TIMED_OUT = 5
