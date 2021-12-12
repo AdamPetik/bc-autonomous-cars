@@ -46,9 +46,9 @@ class TaskSolver(Placeable):
     def solveTasks(self, iteration:int):
         #solve tasks with NFTs first
         self.solveTasksFromNFTTaskFifo(iteration)
-
         #solve other tasks without NFTs
         self.solveTasksFromBasicTaskFifo(iteration)
+
 
     def solveTasksFromNFTTaskFifo(self, iteration):
         while len(self.nft_tasks_fifo) > 0:
@@ -98,7 +98,7 @@ class TaskSolver(Placeable):
                 return False
         return True
 
-    def reserveSolvingCapacity(self, start_iteration: int, end_iteration: int, required_capacity_per_iteration: int, vehicle: AutonomousVehicle) -> NFT:
+    def reserveSolvingCapacity(self, start_iteration: int, end_iteration: int, required_capacity_per_iteration: int, vehicle: AutonomousVehicle):
         if self.cpu_count < required_capacity_per_iteration:
             raise ValueError(f"Required capacity per iteration ({required_capacity_per_iteration}) is higher than CPU count ({self.cpu_count}) of Task Solver {self.id}")
         if self.checkAvailableCapacity(start_iteration, end_iteration, required_capacity_per_iteration):
