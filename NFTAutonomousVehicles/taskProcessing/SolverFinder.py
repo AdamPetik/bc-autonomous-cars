@@ -10,7 +10,7 @@ from src.city.Map import Map
 from src.common.CommonFunctions import CommonFunctions
 
 
-class ProviderFinder:
+class SolverFinder:
     def __init__(self):
         self.com = CommonFunctions()
         self.com_solving = CommonFunctionsForTaskSolving()
@@ -22,14 +22,19 @@ class ProviderFinder:
         effective_radius = self.com_solving.getEffectiveDistanceOfConnection(time_limit=(task.deadline_at - task.created_at),
                                                                              task_size_in_megabytes=task.size_in_megabytes)
         for location_timestamp in route_with_timestamps:
-            location = location_timestamp[0]
-            timestamp = location_timestamp[1]
+            timestamp = location_timestamp[0]
+            location = location_timestamp[1]
 
             #radius, collectionNames, location=Location
-            providers_list = iismotion.mapGrid.getActorsInRadius(effective_radius, collection_names, location)
+            solvers_list = iismotion.mapGrid.getActorsInRadius(effective_radius, collection_names, location)
 
             #nepotrebujeme mat spojitu rezervaciu u konkretneho providera, staci pre kazdy tick vybrat najlepsieho
+            if not solvers_list:
+                raise ValueError(f"Could not find solver for {location.toJson()} within radius of {effective_radius}m")
 
+            for solver in solvers_list:
+                #self, start_iteration: int, end_iteration: int, required_capacity: int
+                solver.checkAvailableCapacity()
 
 
 
