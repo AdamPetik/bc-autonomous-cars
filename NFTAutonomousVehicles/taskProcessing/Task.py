@@ -8,7 +8,8 @@ class Task:
     def __init__(self, vehicle: AutonomousVehicle, solver: TaskSolver,
                  transfer_rate: int, size_in_megabytes: int,
                  created_at: int, deadline_at: int,
-                 nft: NFT = None):
+                 nft: NFT = None,
+                 name = None):
         self.vehicle = vehicle
         self.solver = solver
         self.capacity_needed_to_solve = None
@@ -25,7 +26,7 @@ class Task:
         self.returned_to_creator_at = None
 
         self.nft = nft
-
+        self.name = name
 
 
 class TaskStatus(enum.Enum):
