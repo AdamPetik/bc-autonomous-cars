@@ -1,6 +1,6 @@
-from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
-from NFTAutonomousVehicles.taskProcessing.NFT import NFT
-from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
+# from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
+# from NFTAutonomousVehicles.taskProcessing.NFT import NFT
+# from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
 from src.city.Map import Map
 from src.placeable.Placeable import Placeable
 from collections import deque
@@ -31,7 +31,9 @@ class TaskSolver(Placeable):
         tasks_in_total = self.no_of_successful_tasks + self.no_of_failed_tasks
         return tasks_in_total / self.no_of_successful_tasks
 
-    def receiveTask(self, task: Task, transfer_milliseconds: int):
+    def receiveTask(self, task, transfer_milliseconds: int):
+        from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
+
         task.received_by_task_solver_at = task.created_at + + datetime.timedelta(milliseconds=transfer_milliseconds)
         if(task.nft is None):
             self.basic_tasks_fifo.append(task)
@@ -53,6 +55,8 @@ class TaskSolver(Placeable):
 
 
     def solveTasksFromNFTTaskFifo(self, timestamp):
+        from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
+
         while len(self.nft_tasks_fifo) > 0:
             nft_task = self.nft_tasks_fifo[0]
             if timestamp >= nft_task.received_by_task_solver_at:
@@ -71,6 +75,7 @@ class TaskSolver(Placeable):
                 break
 
     def solveTasksFromBasicTaskFifo(self, iteration):
+        from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
 
         while len(self.basic_tasks_fifo) > 0 and self.getAvailableCapacity(iteration) > 0:
             basic_task = self.basic_tasks_fifo[0]
@@ -104,7 +109,7 @@ class TaskSolver(Placeable):
                 return False
         return True
 
-    def reserveSolvingCapacity(self, start_timestamp, end_timestamp, required_capacity_per_iteration: int, vehicle: AutonomousVehicle):
+    def reserveSolvingCapacity(self, start_timestamp, end_timestamp, required_capacity_per_iteration: int, vehicle):
         if self.cpu_count < required_capacity_per_iteration:
             raise ValueError(f"SIMPLIFICATION! Required capacity per iteration ({required_capacity_per_iteration}) is higher than CPU count ({self.cpu_count}) of Task Solver {self.id}")
 
@@ -127,10 +132,10 @@ class TaskSolver(Placeable):
             raise ValueError(f"Capacity at rounded_millis_timestamp {rounded_millis_timestamp} is {available_capacity}, but attempted to reduce by {capacity}")
         self.solving_capacity[rounded_millis_timestamp] -= capacity
 
-    def removeNFTFromCollection(self, nft: NFT):
+    def removeNFTFromCollection(self, nft):
         self.nft_collection.pop(nft.id)
 
-    def verifyNFTValidForTimestamp(self, nft: NFT, timestamp):
+    def verifyNFTValidForTimestamp(self, nft, timestamp):
         if nft.id in self.nft_collection.keys() and (nft.valid_from <= timestamp <= nft.valid_to):
             return True
         else:

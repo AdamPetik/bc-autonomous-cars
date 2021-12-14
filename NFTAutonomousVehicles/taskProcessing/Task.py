@@ -1,6 +1,4 @@
-from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 from NFTAutonomousVehicles.entities.TaskSolver import TaskSolver
-from NFTAutonomousVehicles.taskProcessing.NFT import NFT
 import enum
 
 from src.common.UniqueID import UniqueID
@@ -8,16 +6,16 @@ from src.common.UniqueID import UniqueID
 
 class Task:
 
-    def __init__(self, vehicle: AutonomousVehicle, solver: TaskSolver,
-                 transfer_rate: int, size_in_megabytes: int,
+    def __init__(self, vehicle, solver: TaskSolver,
+                 transfer_rate: int, size_in_megabytes: int, capacity_needed_to_solve : int,
                  created_at: int, deadline_at: int,
-                 nft: NFT = None,
+                 nft = None,
                  name = None):
         uid = UniqueID()
         self.id = uid.getId()
         self.vehicle = vehicle
         self.solver = solver
-        self.capacity_needed_to_solve = None
+        self.capacity_needed_to_solve = capacity_needed_to_solve
 
         self.size_in_megabytes = size_in_megabytes
         self.transfer_rate = transfer_rate
