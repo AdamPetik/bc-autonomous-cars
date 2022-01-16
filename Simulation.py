@@ -23,7 +23,7 @@ def main():
     # task.name = "Testovaci Task"
     #
     # collector.insertTask(task)
-    # 
+    #
     #
 
 if __name__ == "__main__":

@@ -66,17 +66,30 @@ class MainCollector:
         self.conn.commit()
 
     def insertTask(self, task):
-        insert_query = f"""INSERT INTO task
-                            (task_id, vehicle_id, solver_id, capacity_needed_to_solve, size_in_megabytes, transfer_rate,
-                            status_id, created_at, deadline_at,
-                            received_by_task_solver_at, solved_by_task_solver_at, returned_to_creator_at,
-                            nft_id, nft_valid_from, nft_valid_to, nft_reserved_cores_each_iteration) 
-                            VALUES 
-                            ({task.id},{task.vehicle.id},{task.solver.id},{task.capacity_needed_to_solve},{task.size_in_megabytes},{task.transfer_rate},
-                            {task.status.value},'{task.created_at}','{task.deadline_at}',
-                            '{task.received_by_task_solver_at}','{task.solved_by_task_solver_at}','{task.returned_to_creator_at}'
-                            ,{task.nft.id},'{task.nft.valid_from}','{task.nft.valid_to}',{task.nft.reserved_cores_each_iteration})"""
-        print(insert_query)
+
+        if task.nft is None:
+            insert_query = f"""INSERT INTO task
+                                (task_id, vehicle_id, solver_id, capacity_needed_to_solve, size_in_megabytes, transfer_rate,
+                                status_id, created_at, deadline_at,
+                                received_by_task_solver_at, solved_by_task_solver_at, returned_to_creator_at,
+                                nft_id, nft_valid_from, nft_valid_to, nft_reserved_cores_each_iteration) 
+                                VALUES 
+                                ({task.id},{task.vehicle.id},{task.solver.id},{task.capacity_needed_to_solve},{task.size_in_megabytes},{task.transfer_rate},
+                                {task.status.value},'{task.created_at}','{task.deadline_at}',
+                                '{task.received_by_task_solver_at}','{task.solved_by_task_solver_at}','{task.returned_to_creator_at}'
+                                ,null, null, null, null)"""
+
+        else:
+            insert_query = f"""INSERT INTO task
+                                (task_id, vehicle_id, solver_id, capacity_needed_to_solve, size_in_megabytes, transfer_rate,
+                                status_id, created_at, deadline_at,
+                                received_by_task_solver_at, solved_by_task_solver_at, returned_to_creator_at,
+                                nft_id, nft_valid_from, nft_valid_to, nft_reserved_cores_each_iteration) 
+                                VALUES 
+                                ({task.id},{task.vehicle.id},{task.solver.id},{task.capacity_needed_to_solve},{task.size_in_megabytes},{task.transfer_rate},
+                                {task.status.value},'{task.created_at}','{task.deadline_at}',
+                                '{task.received_by_task_solver_at}','{task.solved_by_task_solver_at}','{task.returned_to_creator_at}'
+                                ,{task.nft.id},'{task.nft.valid_from}','{task.nft.valid_to}',{task.nft.reserved_cores_each_iteration})"""
 
         cursor = self.conn.cursor()
         cursor.execute(insert_query)
