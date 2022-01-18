@@ -1,4 +1,4 @@
-from NFTAutonomousVehicles.iisMotionCustomInterface import ActorCollection
+from NFTAutonomousVehicles.iisMotionCustomInterface.ActorCollection import ActorCollection
 from src.city.Map import Map
 from src.city.MapZone import MapZone
 from src.city.ZoneType import ZoneType
@@ -62,7 +62,7 @@ class IISMotion:
         for key, collection in self.movableCollectionsSet.items():
             if (collection.ableOfMovement):
                 print("Performing step on collection: ", key)
-                collection.step(newDay)
+                collection.stepForVehicles(newDay)
             if (self.locationLoggingEnabled):
                 collection.logMovement(newDay)
         self.sendUpdateToFrontend()

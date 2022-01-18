@@ -1,5 +1,4 @@
 # from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
-# from NFTAutonomousVehicles.taskProcessing.NFT import NFT
 # from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
 from src.city.Map import Map
 from src.placeable.Placeable import Placeable
@@ -110,6 +109,8 @@ class TaskSolver(Placeable):
         return True
 
     def reserveSolvingCapacity(self, start_timestamp, end_timestamp, required_capacity_per_iteration: int, vehicle):
+        from NFTAutonomousVehicles.taskProcessing.NFT import NFT
+
         if self.cpu_count < required_capacity_per_iteration:
             raise ValueError(f"SIMPLIFICATION! Required capacity per iteration ({required_capacity_per_iteration}) is higher than CPU count ({self.cpu_count}) of Task Solver {self.id}")
 

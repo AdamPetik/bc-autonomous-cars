@@ -94,3 +94,29 @@ class MainCollector:
         cursor = self.conn.cursor()
         cursor.execute(insert_query)
         self.conn.commit()
+
+
+
+
+
+
+
+# collector = MainCollector()
+#
+# print("BLABALABLA")
+#
+# # datum = datetime.datetime.now()
+# # nft = NFT(12, 2533, datum, datum, 10)
+# #
+# #
+# # task = Task(1212, 25332533, 2536.25, 55, 15, datum, datum)
+# # task.nft = nft
+# # task.status=TaskStatus.PROCESSING_FAILED
+# # task.received_by_task_solver_at = datum
+# # task.solved_by_task_solver_at = datum
+# # task.returned_to_creator_at = datum
+# # task.name = "Testovaci Task"
+# #
+# # collector.insertTask(task)
+# #
+# #
