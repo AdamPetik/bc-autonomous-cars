@@ -62,7 +62,7 @@ class IISMotion:
         for key, collection in self.movableCollectionsSet.items():
             if (collection.ableOfMovement):
                 print("Performing step on collection: ", key)
-                collection.stepForVehicles(newDay)
+                collection.stepForNFTVehicles(newDay)
             if (self.locationLoggingEnabled):
                 collection.logMovement(newDay)
         self.sendUpdateToFrontend()

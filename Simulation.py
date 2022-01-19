@@ -40,7 +40,7 @@ iismotion = IISMotion(radius=radius,
 
 nftVehicles = iismotion.createActorCollection("nftVehicles", True,
                                                  MovementStrategyType.PRELOADED_LOCATIONS_STRATEGY) \
-    .addAutonomousVehicles(5, False) \
+    .addAutonomousVehicles(1, False) \
     .setGuiEnabled(guiEnabled)
 
 taskSolvers = iismotion.createActorCollection("taskSolvers", False,

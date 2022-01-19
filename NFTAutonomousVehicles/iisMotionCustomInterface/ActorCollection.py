@@ -1,3 +1,5 @@
+import copy
+
 from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 from NFTAutonomousVehicles.iisMotionCustomInterface.TaskSolverLoader import TaskSolverLoader
 from src.city.ZoneType import ZoneType
@@ -45,14 +47,74 @@ class ActorCollection:
 
     def planRouteAccordingToConnections(self):
         for actorId in self.locationsTable.getAllIds():
-            walkable: Movable = self.actorSet[int(actorId)]
-            new_location = self.movementStrategy.getPreloadedLocation(walkable, getDateTime())
+            actor: AutonomousVehicle = self.actorSet[int(actorId)]
+            new_location = self.movementStrategy.getPreloadedLocation(actor, getDateTime())
+
             if (new_location is None):
                 print(f"Actor#{actorId} requires route planning for time:{getDateTime()}")
-                # plan route here
+
+                newTargetLocation = self.map.getRandomNode(actor.getLocation())
+                # plan route towards targetLocation here
+
+                suitableRouteFound = False
+                shortestPath = self.map.getRouteBetweenNodes(actor.getLocation(), newTargetLocation)
+
+                while (suitableRouteFound == False):
+                    timestamp_location_dict, timestamp_nft_dict, \
+                    missing_NFTs, route_length_in_meters, route_step_count = self.getNFTsForRoute(shortestPath, actor, self.secondsPerTick)
+                    self.movementStrategy.preloadLocationsDictForWalkable(actor, timestamp_location_dict)
+                    suitableRouteFound = True
 
 
-    def stepForVehicles(self, newDay: bool):
+
+
+
+
+
+
+    def getNFTsForRoute(self, route, actor, secondsPerTick):
+        timestamp = copy.deepcopy(getDateTime())
+        timestamp_location_dict = dict()
+        timestamp_nft_dict = dict()
+        route_length_in_meters = self.map.getRouteLength(route,0)
+        route_step_count = 0
+        missing_NFTs = 0
+
+        timestamp = copy.deepcopy(getDateTime())
+        locationsTable = LocationsTable(self.mapGrid)
+        actor_set = copy.deepcopy(self.actorSet)
+
+        movementStrategy = MovementStrategyFactory().getStrategy(
+            MovementStrategyType.RANDOM_WAYPOINT_CITY, locationsTable,
+            actor_set, self.map, self.mapGrid)
+
+        while len(route) > 0:
+            print(f"Route size: {len(route)}")
+            next_target = route.pop(0)
+            current_location = copy.deepcopy(actor.getLocation())
+            targetReached = False
+
+            while(targetReached == False):
+                timestamp = timestamp + timedelta(seconds=secondsPerTick)
+                print(f"----distanceToTargetBEFORE={self.com.getCuda2dDistance(current_location, next_target)}")
+                current_location, targetReached = movementStrategy.getNextLocationOnRoute(current_location, next_target, actor.getSpeed())
+                route_step_count = route_step_count + 1
+                print(f"----distanceToTargetAFTER={self.com.getCuda2dDistance(current_location, next_target)}")
+                print(f"----stepCount={route_step_count}")
+                timestamp_location_dict[timestampToMillisecondsSinceStart(timestamp)] = copy.deepcopy(current_location)
+                obtained_nft = None
+                if(obtained_nft is None):
+                    missing_NFTs = missing_NFTs + 1
+
+        return timestamp_location_dict, timestamp_nft_dict, missing_NFTs, route_length_in_meters, route_step_count
+
+
+
+
+
+
+
+    def stepForNFTVehicles(self, newDay: bool):
         # print("step_ New day:", newDay)
         # print(self.locationsTable.getTable())
 
