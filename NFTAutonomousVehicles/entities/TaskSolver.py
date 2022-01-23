@@ -109,7 +109,7 @@ class TaskSolver(Placeable):
                 return False
         return True
 
-    def reserveSolvingCapacity(self, start_timestamp, end_timestamp, required_capacity_per_iteration: int, vehicle):
+    def getUnsignedNFT(self, start_timestamp, end_timestamp, required_capacity_per_iteration: int, vehicle):
         from NFTAutonomousVehicles.taskProcessing.NFT import NFT
 
         if self.cpu_count < required_capacity_per_iteration:
@@ -119,13 +119,37 @@ class TaskSolver(Placeable):
         rounded_millis_end_timestamp = timestampToMillisecondsSinceStartRoundendToTen(end_timestamp)
 
         if self.checkAvailableCapacity(start_timestamp, end_timestamp, required_capacity_per_iteration):
-            for rounded_millis_timestamp in range(rounded_millis_start_timestamp, rounded_millis_end_timestamp, 10):
-                self.reduceSolvingCapacity(rounded_millis_timestamp, required_capacity_per_iteration)
-            nft = NFT(vehicle, self, start_timestamp, end_timestamp, required_capacity_per_iteration)
-            self.nft_collection[nft.id] = nft
+            nft = NFT(vehicle, self, start_timestamp, end_timestamp, required_capacity_per_iteration, False)
             return nft
         else:
             return None
+
+    def signNFT(self, nft):
+        rounded_millis_start_timestamp = timestampToMillisecondsSinceStartRoundendToTen(nft.start_timestamp)
+        rounded_millis_end_timestamp = timestampToMillisecondsSinceStartRoundendToTen(nft.end_timestamp)
+        for rounded_millis_timestamp in range(rounded_millis_start_timestamp, rounded_millis_end_timestamp, 10):
+            self.reduceSolvingCapacity(rounded_millis_timestamp, nft.required_capacity_per_iteration)
+        self.nft_collection[nft.id] = nft
+        nft.signed=True
+        return nft
+
+    # def reserveSolvingCapacity(self, start_timestamp, end_timestamp, required_capacity_per_iteration: int, vehicle):
+    #     from NFTAutonomousVehicles.taskProcessing.NFT import NFT
+    #
+    #     if self.cpu_count < required_capacity_per_iteration:
+    #         raise ValueError(f"SIMPLIFICATION! Required capacity per iteration ({required_capacity_per_iteration}) is higher than CPU count ({self.cpu_count}) of Task Solver {self.id}")
+    #
+    #     rounded_millis_start_timestamp = timestampToMillisecondsSinceStartRoundendToTen(start_timestamp)
+    #     rounded_millis_end_timestamp = timestampToMillisecondsSinceStartRoundendToTen(end_timestamp)
+    #
+    #     if self.checkAvailableCapacity(start_timestamp, end_timestamp, required_capacity_per_iteration):
+    #         for rounded_millis_timestamp in range(rounded_millis_start_timestamp, rounded_millis_end_timestamp, 10):
+    #             self.reduceSolvingCapacity(rounded_millis_timestamp, required_capacity_per_iteration)
+    #         nft = NFT(vehicle, self, start_timestamp, end_timestamp, required_capacity_per_iteration)
+    #         self.nft_collection[nft.id] = nft
+    #         return nft
+    #     else:
+    #         return None
 
     def reduceSolvingCapacity(self, timestamp, capacity: int):
         rounded_millis_timestamp = timestampToMillisecondsSinceStartRoundendToTen(timestamp)

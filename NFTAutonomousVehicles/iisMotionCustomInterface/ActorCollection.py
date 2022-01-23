@@ -1,5 +1,5 @@
 import copy
-from heapq import heappush
+from heapq import heappush, heappop
 
 from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 from NFTAutonomousVehicles.iisMotionCustomInterface.TaskSolverLoader import TaskSolverLoader
@@ -25,16 +25,16 @@ from src.common.MacrocellLoader import MacrocellLoader
 from src.placeable.stationary.Attractor import Attractor
 
 class ProposedRoute:
-    def __init__(self,timestamp_location_dict=None, timestamp_provider_dict=None, timestamp_nft_dict=None,
+    def __init__(self,timestamp_location_dict=None, timestamp_solver_dict=None, timestamp_nft_dict=None,
                  missing_NFTs=None, route_length_in_meters=None, route_step_count=None,
-                 segments_without_provider=None):
+                 segments_without_solvers=None):
         self.timestamp_location_dict = timestamp_location_dict
-        self.timestamp_provider_dict= timestamp_provider_dict
+        self.timestamp_solver_dict= timestamp_solver_dict
         self.timestamp_nft_dict = timestamp_nft_dict
         self.missing_NFTs = missing_NFTs
         self.route_length_in_meters = route_length_in_meters
         self.route_step_count = route_step_count
-        self.segments_without_provider = segments_without_provider
+        self.segments_without_solvers = segments_without_solvers
 
     def getMetrics(self):
         distance_weight = 0.01
@@ -63,7 +63,7 @@ class ActorCollection:
         return self
 
 
-    def planRouteAccordingToConnections(self):
+    def planRoutesForNFTVehicles(self):
         # print("planRouteAccordingToConnections")
         for actorId in self.locationsTable.getAllIds():
             # print(f"actor#{actorId}")
@@ -75,34 +75,40 @@ class ActorCollection:
 
                 newTargetLocation = self.map.getRandomNode(actor.getLocation())
                 # plan route towards targetLocation here
-
                 proposed_routes = []
+                proposed_routes_counter = 0
+                segments_without_solvers = set()
+                suitable_route_found = False
+                shortest_path = self.map.getRouteBetweenNodes(actor.getLocation(), newTargetLocation)
+                shortest_proposed_route = self.getProposedRoute(shortest_path, actor, self.secondsPerTick)
+                heappush(proposed_routes, (shortest_proposed_route.getMetrics(),proposed_routes_counter, shortest_proposed_route))
+                proposed_routes_counter = proposed_routes_counter + 1
+                segments_without_solvers.union(shortest_proposed_route.segments_without_solvers)
 
-                suitableRouteFound = False
-                shortestPath = self.map.getRouteBetweenNodes(actor.getLocation(), newTargetLocation)
-                heappush(proposed_routes, (, , ))
+                if shortest_proposed_route.missing_NFTs != 0:
+                    #while existuje cesta bez zych segmentov a list segmentov sa nemeni v kazdej iteracii
+                    alternative_path = self.map.getRouteBetweenNodesExcludingNodes(actor.getLocation(), newTargetLocation, segments_without_solvers)
+                    while alternative_path:
+                        alternative_proposed_route = self.getProposedRoute(alternative_path, actor, self.secondsPerTick)
+                        heappush(proposed_routes, (alternative_proposed_route.getMetrics(), proposed_routes_counter, alternative_proposed_route))
+                        proposed_routes_counter = proposed_routes_counter + 1
+                        segments_without_solvers.union(alternative_proposed_route.segments_without_solvers)
 
-                while (suitableRouteFound == False):
-                    timestamp_location_dict, timestamp_nft_dict, \
-                    missing_NFTs, route_length_in_meters, route_step_count = self.getProposedRoute(shortestPath, actor, self.secondsPerTick)
-                    self.movementStrategy.preloadLocationsDictForWalkable(actor, timestamp_location_dict)
-                    suitableRouteFound = True
-                planned_location = self.movementStrategy.getPreloadedLocation(actor, getDateTime())
+                        alternative_path = self.map.getRouteBetweenNodesExcludingNodes(actor.getLocation(),
+                                                                                       newTargetLocation,
+                                                                                       segments_without_solvers)
 
-
-            ##TODO NEROBIT HNED REZERVACIU PROSTRIEDKOV ALE LEN OVEROVAT DOSTUPNOSTI
-
-            # dist = self.com.getCuda2dDistance(actor.getLocation(), planned_location)
-            # if(dist > 20):
-            #     print(f"distance between currentLocation and new_location = {dist}")
-            #
-
+                #TODO obtain NFTs for best route
+                #TODO nfts should be obtained during planning, but obtained tokens would be invalid, than need to be registered
+                #also each vehicle should have sample task prepared without timestamps
+                best_proposed_route = heappop(proposed_routes)
 
 
 
+    def getProposedRoute(self, route, actor, task, secondsPerTick, solver_collection_names):
+        from NFTAutonomousVehicles.taskProcessing.SolverFinder import SolverFinder
+        solver_finder = SolverFinder()
 
-
-    def getProposedRoute(self, route, actor, secondsPerTick):
         # print(f"----getNFTsForRoute----")
         timestamp = copy.deepcopy(getDateTime())
         timestamp_location_dict = dict()
@@ -110,7 +116,7 @@ class ActorCollection:
         route_length_in_meters = self.map.getRouteLength(route,0)
         route_step_count = 0
         missing_NFTs = 0
-        segments_without_provider = set()
+        segments_without_solvers = set()
 
         timestamp = copy.deepcopy(getDateTime())
         locationsTable = LocationsTable(self.mapGrid)
@@ -137,26 +143,22 @@ class ActorCollection:
                 timestamp_location_dict[timestampToMillisecondsSinceStart(timestamp)] = copy.deepcopy(current_location)
 
                 timestamp = timestamp + timedelta(seconds=secondsPerTick)
+                obtained_nft = solver_finder.searchForTaskSolver(self.mapGrid,task=task,solver_collection_names=solver_collection_names)
 
-
-
-
-                obtained_nft = None
                 if(obtained_nft is None):
                     missing_NFTs = missing_NFTs + 1
-                    segments_without_provider.add((previous_target.getOsmnxNode(), next_target.getOsmnxNode()))
+                    segments_without_solvers.add((previous_target, next_target))
             previous_target = copy.deepcopy(next_target)
 
-        if(missing_NFTs>0 and len(segments_without_provider)==0):
-            raise ValueError(f"segments_without_provider is not counted properly| missingNFTs: {missing_NFTs} but segments_without_provider: {len(segments_without_provider)}")
+        if(missing_NFTs>0 and len(segments_without_solvers)==0):
+            raise ValueError(f"segments_without_provider is not counted properly| missingNFTs: {missing_NFTs} but segments_without_provider: {len(segments_without_solvers)}")
 
         proposed_route = ProposedRoute(timestamp_location_dict=timestamp_location_dict,
                                       timestamp_nft_dict=None,
                                       missing_NFTs=missing_NFTs,
                                       route_length_in_meters=route_length_in_meters,
                                       route_step_count=route_step_count,
-                                      segments_without_provider=segments_without_provider)
-
+                                      segments_without_solvers=segments_without_solvers)
         return proposed_route
 
 
@@ -173,7 +175,7 @@ class ActorCollection:
 
         # for id in self.locationsTable.getIdsInDestinations():
         #     walkable: object = self.actorSet[int(id)]
-        self.planRouteAccordingToConnections()
+        self.planRoutesForNFTVehicles()
         self.movementStrategy.move()
 
     def getLocationPredictionsForNextIterations(self, nuOfIterations, movementBackwardsAllowed=True):
