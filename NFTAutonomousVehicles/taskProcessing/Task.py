@@ -7,7 +7,7 @@ from src.common.UniqueID import UniqueID
 class Task:
 
     def __init__(self, vehicle, solver: TaskSolver,
-                 transfer_rate: int, size_in_megabytes: int, capacity_needed_to_solve : int,
+                 transfer_rate: int, size_in_megabytes: int, capacity_needed_to_solve : int, solving_time :int,
                  created_at: int, deadline_at: int,
                  nft = None,
                  name = None):
@@ -16,6 +16,7 @@ class Task:
         self.vehicle = vehicle
         self.solver = solver
         self.capacity_needed_to_solve = capacity_needed_to_solve
+        self.solving_time = solving_time
 
         self.size_in_megabytes = size_in_megabytes
         self.transfer_rate = transfer_rate

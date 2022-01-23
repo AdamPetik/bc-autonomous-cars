@@ -20,7 +20,7 @@ radius = 200  # radius around the location that will be included
 
 oneway = False  # oneways are disabled so agents will not get stuck at the edges of simulated area
 guiEnabled = True  # gui enabled, to see the agents, open /frontend/index.html in your browser while simulation running
-guiTimeout = 0.2  # in seconds, sleep between simulations steps (gui is unable to keep up with updates at full speed)
+guiTimeout = 3.2  # in seconds, sleep between simulations steps (gui is unable to keep up with updates at full speed)
 intersectionCheck = True  # check whether agents are located at the intersection nodes
 gridRows = 5  # grid that world is split into (used to find closest pairs of agents when needed)
 

@@ -11,6 +11,7 @@ class TaskSolver(Placeable):
     def __init__(self, locationsTable, map:Map):
         super(TaskSolver, self).__init__(locationsTable, map)
         self.cpu_count = 8
+        self.processing_iteration_duration_seconds = 0.01
         self.solving_capacity = {}
         self.nft_collection = {}
 
@@ -69,7 +70,7 @@ class TaskSolver(Placeable):
                         nft_task.vehicle.receiveSolvedTask(task=nft_task)
                 else:
                     raise ValueError(
-                        f"NFT is not valid for given iteration #{iteration} | NFT: {nft_task.nft.toJson()}")
+                        f"NFT is not valid for given iteration #{timestampToMillisecondsSinceStartRoundendToTen(timestamp)} | NFT: {nft_task.nft.toJson()}")
             else:
                 break
 

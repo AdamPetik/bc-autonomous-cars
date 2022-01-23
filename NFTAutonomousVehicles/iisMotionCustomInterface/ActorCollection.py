@@ -1,4 +1,5 @@
 import copy
+from heapq import heappush
 
 from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 from NFTAutonomousVehicles.iisMotionCustomInterface.TaskSolverLoader import TaskSolverLoader
@@ -23,6 +24,23 @@ import time
 from src.common.MacrocellLoader import MacrocellLoader
 from src.placeable.stationary.Attractor import Attractor
 
+class ProposedRoute:
+    def __init__(self,timestamp_location_dict=None, timestamp_provider_dict=None, timestamp_nft_dict=None,
+                 missing_NFTs=None, route_length_in_meters=None, route_step_count=None,
+                 segments_without_provider=None):
+        self.timestamp_location_dict = timestamp_location_dict
+        self.timestamp_provider_dict= timestamp_provider_dict
+        self.timestamp_nft_dict = timestamp_nft_dict
+        self.missing_NFTs = missing_NFTs
+        self.route_length_in_meters = route_length_in_meters
+        self.route_step_count = route_step_count
+        self.segments_without_provider = segments_without_provider
+
+    def getMetrics(self):
+        distance_weight = 0.01
+        service_wight = 1
+        return distance_weight * self.route_step_count + service_wight * ((self.route_step_count - self.missing_NFTs) / self.route_step_count)
+
 
 class ActorCollection:
 
@@ -46,39 +64,53 @@ class ActorCollection:
 
 
     def planRouteAccordingToConnections(self):
+        # print("planRouteAccordingToConnections")
         for actorId in self.locationsTable.getAllIds():
+            # print(f"actor#{actorId}")
             actor: AutonomousVehicle = self.actorSet[int(actorId)]
-            new_location = self.movementStrategy.getPreloadedLocation(actor, getDateTime())
+            planned_location = self.movementStrategy.getPreloadedLocation(actor, getDateTime())
 
-            if (new_location is None):
-                print(f"Actor#{actorId} requires route planning for time:{getDateTime()}")
+            if (planned_location is None):
+                # print(f"Actor#{actorId} requires route planning for time:{getDateTime()}")
 
                 newTargetLocation = self.map.getRandomNode(actor.getLocation())
                 # plan route towards targetLocation here
 
+                proposed_routes = []
+
                 suitableRouteFound = False
                 shortestPath = self.map.getRouteBetweenNodes(actor.getLocation(), newTargetLocation)
+                heappush(proposed_routes, (, , ))
 
                 while (suitableRouteFound == False):
                     timestamp_location_dict, timestamp_nft_dict, \
-                    missing_NFTs, route_length_in_meters, route_step_count = self.getNFTsForRoute(shortestPath, actor, self.secondsPerTick)
+                    missing_NFTs, route_length_in_meters, route_step_count = self.getProposedRoute(shortestPath, actor, self.secondsPerTick)
                     self.movementStrategy.preloadLocationsDictForWalkable(actor, timestamp_location_dict)
                     suitableRouteFound = True
+                planned_location = self.movementStrategy.getPreloadedLocation(actor, getDateTime())
+
+
+            ##TODO NEROBIT HNED REZERVACIU PROSTRIEDKOV ALE LEN OVEROVAT DOSTUPNOSTI
+
+            # dist = self.com.getCuda2dDistance(actor.getLocation(), planned_location)
+            # if(dist > 20):
+            #     print(f"distance between currentLocation and new_location = {dist}")
+            #
 
 
 
 
 
 
-
-
-    def getNFTsForRoute(self, route, actor, secondsPerTick):
+    def getProposedRoute(self, route, actor, secondsPerTick):
+        # print(f"----getNFTsForRoute----")
         timestamp = copy.deepcopy(getDateTime())
         timestamp_location_dict = dict()
         timestamp_nft_dict = dict()
         route_length_in_meters = self.map.getRouteLength(route,0)
         route_step_count = 0
         missing_NFTs = 0
+        segments_without_provider = set()
 
         timestamp = copy.deepcopy(getDateTime())
         locationsTable = LocationsTable(self.mapGrid)
@@ -88,25 +120,44 @@ class ActorCollection:
             MovementStrategyType.RANDOM_WAYPOINT_CITY, locationsTable,
             actor_set, self.map, self.mapGrid)
 
+        current_location = copy.deepcopy(actor.getLocation())
+        previous_target = copy.deepcopy(current_location)
         while len(route) > 0:
-            print(f"Route size: {len(route)}")
+            # print(f"Route size: {len(route)}")
             next_target = route.pop(0)
-            current_location = copy.deepcopy(actor.getLocation())
-            targetReached = False
+            target_reached = False
 
-            while(targetReached == False):
-                timestamp = timestamp + timedelta(seconds=secondsPerTick)
-                print(f"----distanceToTargetBEFORE={self.com.getCuda2dDistance(current_location, next_target)}")
-                current_location, targetReached = movementStrategy.getNextLocationOnRoute(current_location, next_target, actor.getSpeed())
+            while(target_reached == False):
+                # print(f"----distanceToTargetBEFORE={self.com.getCuda2dDistance(current_location, next_target)}")
+                current_location, target_reached = movementStrategy.getNextLocationOnRoute(current_location, next_target, actor.getSpeed())
                 route_step_count = route_step_count + 1
-                print(f"----distanceToTargetAFTER={self.com.getCuda2dDistance(current_location, next_target)}")
-                print(f"----stepCount={route_step_count}")
+                # print(f"----distanceToTargetAFTER={self.com.getCuda2dDistance(current_location, next_target)}")
+                # print(f"----stepCount={route_step_count}")
+                # print(f"preloading locaiton for timestamp: {timestamp}")
                 timestamp_location_dict[timestampToMillisecondsSinceStart(timestamp)] = copy.deepcopy(current_location)
+
+                timestamp = timestamp + timedelta(seconds=secondsPerTick)
+
+
+
+
                 obtained_nft = None
                 if(obtained_nft is None):
                     missing_NFTs = missing_NFTs + 1
+                    segments_without_provider.add((previous_target.getOsmnxNode(), next_target.getOsmnxNode()))
+            previous_target = copy.deepcopy(next_target)
 
-        return timestamp_location_dict, timestamp_nft_dict, missing_NFTs, route_length_in_meters, route_step_count
+        if(missing_NFTs>0 and len(segments_without_provider)==0):
+            raise ValueError(f"segments_without_provider is not counted properly| missingNFTs: {missing_NFTs} but segments_without_provider: {len(segments_without_provider)}")
+
+        proposed_route = ProposedRoute(timestamp_location_dict=timestamp_location_dict,
+                                      timestamp_nft_dict=None,
+                                      missing_NFTs=missing_NFTs,
+                                      route_length_in_meters=route_length_in_meters,
+                                      route_step_count=route_step_count,
+                                      segments_without_provider=segments_without_provider)
+
+        return proposed_route
 
 
 

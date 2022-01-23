@@ -65,6 +65,10 @@ class IISMotion:
                 collection.stepForNFTVehicles(newDay)
             if (self.locationLoggingEnabled):
                 collection.logMovement(newDay)
+        self.postStepProcedure()
+
+
+    def postStepProcedure(self):
         self.sendUpdateToFrontend()
 
     def addMapZone(self, name, zoneType: ZoneType, probability, lacationsPolygon: []):
