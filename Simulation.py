@@ -46,9 +46,10 @@ nftVehicles = iismotion.createActorCollection("nftVehicles", True,
 taskSolvers = iismotion.createActorCollection("taskSolvers", False,
                                                  MovementStrategyType.DRONE_MOVEMENT_CUDA) \
     .setGuiEnabled(guiEnabled)
-# iismotion.getActorCollection("taskSolvers").generateTaskSolvers(10, 50)
-# iismotion.getActorCollection("taskSolvers").storeTaskSolvers("FirstSOLVERS.json")
-iismotion.getActorCollection("taskSolvers").loadTaskSolversFromFile("FirstSOLVERS.json")
+# iismotion.getActorCollection("taskSolvers").generateTaskSolvers(30, 20)
+# iismotion.getActorCollection("taskSolvers").storeTaskSolvers("DENSE_30_20m_far.json")
+iismotion.getActorCollection("taskSolvers").loadTaskSolversFromFile("DENSE_30_20m_far.json")
+# iismotion.getActorCollection("taskSolvers").loadTaskSolversFromFile("FirstSOLVERS.json")
 
 
 # method that moves agents for desired number of iterations

@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 from NFTAutonomousVehicles.entities.TaskSolver import TaskSolver
 from NFTAutonomousVehicles.taskProcessing.CommonFunctionsForTaskSolving import CommonFunctionsForTaskSolving
@@ -17,23 +19,25 @@ class SolverFinder:
 
     def searchForTaskSolver(self,  mapGrid, task, solver_collection_names):
         effective_radius = self.com_solving.getEffectiveDistanceOfConnection(
-            solving_time = task.solving_time,
-            time_limit=(task.deadline_at - task.created_at),
+            solving_time= task.solving_time,
+            time_limit=task.limit_time,
             task_size_in_megabytes=task.size_in_megabytes)
 
         solvers_list = mapGrid.getActorsInRadius(effective_radius, solver_collection_names, task.vehicle.getLocation())
-        if not solvers_list:
-            raise ValueError(f"Could not find solver for {task.vehicle.getLocation()} within radius of {effective_radius}m")
+        # if not solvers_list:
+            # print(f"Could not find solver for {task.vehicle.getLocation().toString()} within radius of {effective_radius}m")
+            # raise ValueError(f"Could not find solver for {task.vehicle.getLocation().toString()} within radius of {effective_radius}m")
 
         start_timestamp = task.created_at
         for solver in solvers_list:
             # direct allocation attempt
-            end_timestamp = start_timestamp + task.solving_time + (2 * self.com_solving.getTransferTimeInMilliseconds(task.vehicle.getLocation(), solver.getLocation()))
-            nft = solver.getUnsignedNFT(start_timestamp, end_timestamp, task.capacity_needed_to_solve, task.vehicle)
-            if nft is not None:
-                return nft
+            end_timestamp = start_timestamp +timedelta(seconds=task.solving_time ) + timedelta(seconds=(2 * self.com_solving.getTransferTimeInSeconds(task.vehicle.getLocation(), solver.getLocation(), task.size_in_megabytes)))
+            unsigned_nft = solver.getUnsignedNFT(start_timestamp, end_timestamp, task.capacity_needed_to_solve, task.vehicle)
+            if unsigned_nft is not None:
+                # print("AVAILABLE SOLVER")
+                return unsigned_nft
 
-        print(f"Solver was not available for timestamp {start_timestamp}-{end_timestamp} capacity:{task.capacity_needed_to_solve}")
+        # print(f"Solver was not available for timestamp {start_timestamp}-{task.deadline_at} capacity:{task.capacity_needed_to_solve}")
 
         return None
 

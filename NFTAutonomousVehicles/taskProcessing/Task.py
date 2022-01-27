@@ -6,17 +6,18 @@ from src.common.UniqueID import UniqueID
 
 class Task:
 
-    def __init__(self, vehicle, solver: TaskSolver,
-                 transfer_rate: int, size_in_megabytes: int, capacity_needed_to_solve : int, solving_time :int,
-                 created_at: int, deadline_at: int,
-                 nft = None,
-                 name = None):
+    def __init__(self, vehicle=None, solver=None,
+                 transfer_rate=None, size_in_megabytes=None, capacity_needed_to_solve=None, solving_time=None, limit_time=None,
+                 created_at=None, deadline_at=None,
+                 nft=None,
+                 name=None):
         uid = UniqueID()
         self.id = uid.getId()
         self.vehicle = vehicle
         self.solver = solver
         self.capacity_needed_to_solve = capacity_needed_to_solve
         self.solving_time = solving_time
+        self.limit_time = limit_time
 
         self.size_in_megabytes = size_in_megabytes
         self.transfer_rate = transfer_rate

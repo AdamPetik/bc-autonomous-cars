@@ -17,6 +17,9 @@ class AutonomousVehicle(Movable):
         self.successfully_solved_tasks = {}
         self.failed_tasks = {}
 
+        self.sample_task = Task(vehicle=self, size_in_megabytes=1, capacity_needed_to_solve=4, solving_time=0.1, limit_time=0.2)
+        self.active_proposed_route = None
+
     def receiveSolvedTask(self, task: Task) -> bool:
         self.active_tasks.pop(task.id)
 
