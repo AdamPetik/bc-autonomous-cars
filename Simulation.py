@@ -39,17 +39,24 @@ iismotion = IISMotion(radius=radius,
 
 
 
-nftVehicles = iismotion.createActorCollection("nftVehicles", True,
-                                                 MovementStrategyType.PRELOADED_LOCATIONS_STRATEGY) \
-    .addAutonomousVehicles(1, False) \
+nftVehicles = iismotion\
+    .createActorCollection("nftVehicles", True, MovementStrategyType.PRELOADED_LOCATIONS_STRATEGY) \
+    .addAutonomousVehicles(1, False, 0) \
     .setGuiEnabled(guiEnabled)
 
-taskSolvers = iismotion.createActorCollection("taskSolvers", False,
-                                                 MovementStrategyType.DRONE_MOVEMENT_CUDA) \
+basicVehicles = iismotion\
+    .createActorCollection("basicVehicles", True, MovementStrategyType.RANDOM_WAYPOINT_CITY) \
+    .addAutonomousVehicles(1, False, 1) \
     .setGuiEnabled(guiEnabled)
+
+
+taskSolvers = iismotion\
+    .createActorCollection("taskSolvers", False, MovementStrategyType.DRONE_MOVEMENT_CUDA) \
+    .setGuiEnabled(guiEnabled)
+
 # iismotion.getActorCollection("taskSolvers").generateTaskSolvers(30, 20)
 # iismotion.getActorCollection("taskSolvers").storeTaskSolvers("DENSE_30_20m_far.json")
-iismotion.getActorCollection("taskSolvers").loadTaskSolversFromFile("DENSE_30_20m_far.json")
+# taskSolvers.loadTaskSolversFromFile("DENSE_30_20m_far.json")
 # iismotion.getActorCollection("taskSolvers").loadTaskSolversFromFile("FirstSOLVERS.json")
 
 
@@ -65,14 +72,17 @@ async def simulate():
         print(f"---------------- step: {step} ---------------- dateTime : {getDateTime()} ----------------")
         stepStart = time.time()
 
+        basicVehicles.planRoutesForNonNFTVehicles(newDay)
+        nftVehicles.planRoutesForNFTVehicles(['taskSolvers'], logger)
+        iismotion.stepAllCollections(newDay, logger)
 
 
-        iismotion.stepAllCollections(newDay, logger)  # move all collections with ableOfMovement=True
+
+
+
+
+
         stepEnd = time.time()
-
-
-
-
         print("step took ", stepEnd - stepStart)
         global DATETIME
         if (guiEnabled == True):

@@ -1,7 +1,15 @@
 from NFTAutonomousVehicles.entities.TaskSolver import TaskSolver
 import enum
-
+from src.common.SimulationClock import *
 from src.common.UniqueID import UniqueID
+
+
+class TaskStatus(enum.Enum):
+    SUBMITTED = 1
+    BEING_PROCESSED = 2
+    SOLVED = 3
+    PROCESSING_FAILED = 4
+    TASK_TIMED_OUT = 5
 
 
 class Task:
@@ -33,10 +41,8 @@ class Task:
         self.nft = nft
         self.name = name
 
+    def getTotalTimeSpent(self):
+        return self.returned_to_creator_at - self.created_at
 
-class TaskStatus(enum.Enum):
-    SUBMITTED = 1
-    BEING_PROCESSED = 2
-    SOLVED = 3
-    PROCESSING_FAILED = 4
-    TASK_TIMED_OUT = 5
+    def getDeadlineInterval(self):
+        return self.deadline_at - self.created_at

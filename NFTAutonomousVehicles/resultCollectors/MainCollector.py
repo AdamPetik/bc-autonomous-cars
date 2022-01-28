@@ -30,6 +30,7 @@ class MainCollector:
         SQL_CREATE_TASK_TABLE = """ CREATE TABLE IF NOT EXISTS task (
                                                 task_id integer PRIMARY KEY,
                                                 vehicle_id integer NOT NULL,
+                                                vehicle_type integer NOT NULL,
                                                 solver_id integer NOT NULL,
                                                 capacity_needed_to_solve integer NOT NULL,
                                                 size_in_megabytes integer NOT NULL,
@@ -37,6 +38,8 @@ class MainCollector:
                                                 status_id integer NOT NULL,
                                                 created_at TEXT NOT NULL,
                                                 deadline_at TEXT NOT NULL,
+                                                deadline_interval real NOT NULL,
+                                                total_time_spent real NOT NULL,
                                                 received_by_task_solver_at TEXT NOT NULL,
                                                 solved_by_task_solver_at TEXT NOT NULL,
                                                 returned_to_creator_at TEXT NOT NULL,
@@ -87,28 +90,32 @@ class MainCollector:
         self.conn.commit()
 
     def insertTask(self, task):
+        if task.solver is None:
+            solver_id = "null"
+        else:
+            solver_id = task.solver.id
 
         if task.nft is None:
             insert_query = f"""INSERT INTO task
-                                (task_id, vehicle_id, solver_id, capacity_needed_to_solve, size_in_megabytes, transfer_rate,
-                                status_id, created_at, deadline_at,
+                                (task_id, vehicle_id, vehicle_type, solver_id, capacity_needed_to_solve, size_in_megabytes, transfer_rate,
+                                status_id, created_at, deadline_at, deadline_interval, total_time_spent,
                                 received_by_task_solver_at, solved_by_task_solver_at, returned_to_creator_at,
                                 nft_id, nft_valid_from, nft_valid_to, nft_reserved_cores_each_iteration) 
                                 VALUES 
-                                ({task.id},{task.vehicle.id},{task.solver.id},{task.capacity_needed_to_solve},{task.size_in_megabytes},{task.transfer_rate},
-                                {task.status.value},'{task.created_at}','{task.deadline_at}',
+                                ({task.id},{task.vehicle.id},{task.vehicle.vehicle_type},{solver_id},{task.capacity_needed_to_solve},{task.size_in_megabytes},{task.transfer_rate},
+                                {task.status.value},'{task.created_at}','{task.deadline_at}',{task.getDeadlineInterval()}, {task.getTotalTimeSpent()},
                                 '{task.received_by_task_solver_at}','{task.solved_by_task_solver_at}','{task.returned_to_creator_at}'
                                 ,null, null, null, null)"""
 
         else:
             insert_query = f"""INSERT INTO task
-                                (task_id, vehicle_id, solver_id, capacity_needed_to_solve, size_in_megabytes, transfer_rate,
-                                status_id, created_at, deadline_at,
+                                (task_id, vehicle_id, vehicle_type, solver_id, capacity_needed_to_solve, size_in_megabytes, transfer_rate,
+                                status_id, created_at, deadline_at, deadline_interval, total_time_spent,
                                 received_by_task_solver_at, solved_by_task_solver_at, returned_to_creator_at,
                                 nft_id, nft_valid_from, nft_valid_to, nft_reserved_cores_each_iteration) 
                                 VALUES 
-                                ({task.id},{task.vehicle.id},{task.solver.id},{task.capacity_needed_to_solve},{task.size_in_megabytes},{task.transfer_rate},
-                                {task.status.value},'{task.created_at}','{task.deadline_at}',
+                                ({task.id},{task.vehicle.id},{task.vehicle.vehicle_type},{solver_id},{task.capacity_needed_to_solve},{task.size_in_megabytes},{task.transfer_rate},
+                                {task.status.value},'{task.created_at}','{task.deadline_at}',{task.getDeadlineInterval()}, {task.getTotalTimeSpent()},
                                 '{task.received_by_task_solver_at}','{task.solved_by_task_solver_at}','{task.returned_to_creator_at}'
                                 ,{task.nft.id},'{task.nft.valid_from}','{task.nft.valid_to}',{task.nft.reserved_cores_each_iteration})"""
 

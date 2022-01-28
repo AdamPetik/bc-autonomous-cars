@@ -9,8 +9,9 @@ from src.placeable.movable.MovementActivity import MovementActivity
 
 class AutonomousVehicle(Movable):
 
-    def __init__(self, locationsTable, map, operator=None):
+    def __init__(self, locationsTable, map, vehicle_type):
         super(AutonomousVehicle, self).__init__(locationsTable, map)
+        self.vehicle_type = vehicle_type
         self.com = CommonFunctions()
 
         self.active_tasks = {}
@@ -29,6 +30,3 @@ class AutonomousVehicle(Movable):
         else:
             self.failed_tasks[task.id] = task
             task.solver.decreaseReputation()
-
-
-    # TODO vehicle have to buy NFTs that will guarantee tasks to be solved in single iteration
