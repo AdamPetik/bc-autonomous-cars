@@ -58,11 +58,11 @@ class IISMotion:
     #             collection.logMovement(newDay)
     #     self.sendUpdateToFrontend()
 
-    def stepAllCollections(self, newDay):
+    def stepAllCollections(self, newDay, logger):
         for key, collection in self.movableCollectionsSet.items():
             if (collection.ableOfMovement):
                 print("Performing step on collection: ", key)
-                collection.stepForNFTVehicles(newDay)
+                collection.stepForNFTVehicles(newDay, logger)
             if (self.locationLoggingEnabled):
                 collection.logMovement(newDay)
         self.postStepProcedure()

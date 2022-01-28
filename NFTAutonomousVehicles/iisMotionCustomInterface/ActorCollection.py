@@ -40,9 +40,9 @@ class ProposedRoute:
         self.segments_without_solvers = segments_without_solvers
 
     def getMetrics(self):
-        distance_weight = 0.01
+        distance_weight = 1
         service_wight = 1
-        return distance_weight * self.route_step_count + service_wight * ((self.route_step_count - self.missing_NFTs) / self.route_step_count)
+        return distance_weight * self.route_step_count + service_wight * self.missing_NFTs
 
     def toJson(self) -> str:
         output = {}
@@ -70,12 +70,13 @@ class ActorCollection:
         self.guiEnabled = False
         self.com = CommonFunctions()
 
+
     def setGuiEnabled(self, value: bool) -> 'ActorCollection':
         self.guiEnabled = value
         return self
 
 
-    def planRoutesForNFTVehicles(self, solver_collection_names):
+    def planRoutesForNFTVehicles(self, solver_collection_names, logger):
         # print("planRouteAccordingToConnections")
         for actorId in self.locationsTable.getAllIds():
             # print(f"actor#{actorId}")
@@ -127,6 +128,8 @@ class ActorCollection:
                 #TODO nfts should be obtained during planning, but obtained tokens would be invalid, than need to be registered
                 #also each vehicle should have sample task prepared without timestamps
                 best_proposed_route = heappop(proposed_routes)[2]
+                logger.logProposedRoute(actor,getDateTime(),len(proposed_routes)+1,shortest_proposed_route, best_proposed_route)
+
                 print(f"This route was chosen as BEST: {best_proposed_route.toJson()}")
 
                 #TODO compare best route with shortest route here! to have stats about route planning
@@ -210,7 +213,7 @@ class ActorCollection:
         return proposed_route
 
 
-    def stepForNFTVehicles(self, newDay: bool):
+    def stepForNFTVehicles(self, newDay: bool, logger):
         # print("step_ New day:", newDay)
         # print(self.locationsTable.getTable())
 
@@ -218,7 +221,7 @@ class ActorCollection:
 
         # for id in self.locationsTable.getIdsInDestinations():
         #     walkable: object = self.actorSet[int(id)]
-        self.planRoutesForNFTVehicles(['taskSolvers'])
+        self.planRoutesForNFTVehicles(['taskSolvers'], logger)
         self.movementStrategy.move()
 
         #print NFTs for current timestamp

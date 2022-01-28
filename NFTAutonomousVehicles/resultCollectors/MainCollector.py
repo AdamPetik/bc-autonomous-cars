@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import datetime
 
@@ -5,14 +6,15 @@ import datetime
 
 class MainCollector:
 
-
     def __init__(self):
-        filename = str(datetime.datetime.now()).replace(" ","_").replace(":","") +".db"
+        cache_dir = os.path.join('results', 'databaseFiles')
+        if not os.path.exists(cache_dir):
+            os.makedirs(cache_dir)
 
+        filename = cache_dir + "/" + str(datetime.datetime.now()).replace(" ","_").replace(":","") +".db"
         self.conn = sqlite3.connect(filename)
         print("SQLITE connection ready" + sqlite3.version)
         self.createTables()
-
 
     def closeCollector(self):
         self.conn.close()
@@ -45,9 +47,28 @@ class MainCollector:
                                                 FOREIGN KEY (status_id) REFERENCES task_state (status_id)
                                             ); """
 
+        SQL_CREATE_ROUTE_TABLE = """ CREATE TABLE IF NOT EXISTS route (
+                                                vehicle_id integer NOT NULL,
+                                                planning_at TEXT NOT NULL,
+                                                number_of_routes_considered integer,
+                                                shortest_route_index integer,
+                                                shortest_route_missing_nfts integer,
+                                                shortest_route_step_count integer,
+                                                shortest_route_length_in_meters real,
+                                                shortest_route_segments_without_solvers integer,
+                                                shortest_route_metrics real,
+                                                best_route_index integer,
+                                                best_route_missing_nfts integer,
+                                                best_route_step_count integer,
+                                                best_route_length_in_meters real,
+                                                best_route_segments_without_solvers integer,
+                                                best_route_metrics real
+                                            ); """
+
         cursor = self.conn.cursor()
         cursor.execute(SQL_CREATE_TASK_STATE_TABLE)
         cursor.execute(SQL_CREATE_TASK_TABLE)
+        cursor.execute(SQL_CREATE_ROUTE_TABLE)
 
         self.insertTaskStatus(1, "SUBMITTED")
         self.insertTaskStatus(2, "BEING_PROCESSED")
@@ -98,8 +119,24 @@ class MainCollector:
 
 
 
-
-
+    def logProposedRoute(self, vehicle, planing_at, number_of_routes_considered, shortest_route, best_route):
+        insert_query = f"""INSERT INTO route
+                            ( vehicle_id, planning_at, number_of_routes_considered,
+                            shortest_route_index, shortest_route_missing_nfts, shortest_route_step_count, shortest_route_length_in_meters,
+                            shortest_route_segments_without_solvers, shortest_route_metrics,
+                            best_route_index, best_route_missing_nfts, best_route_step_count, best_route_length_in_meters,
+                            best_route_segments_without_solvers, best_route_metrics) 
+                            VALUES 
+                            (
+                            {vehicle.id},'{planing_at}', {number_of_routes_considered},
+                            {shortest_route.index}, {shortest_route.missing_NFTs}, {shortest_route.route_step_count}, {shortest_route.route_length_in_meters},
+                            {len(shortest_route.segments_without_solvers)},{shortest_route.getMetrics()},
+                            {best_route.index}, {best_route.missing_NFTs}, {best_route.route_step_count}, {best_route.route_length_in_meters},
+                            {len(best_route.segments_without_solvers)},{best_route.getMetrics()}
+                            )"""
+        cursor = self.conn.cursor()
+        cursor.execute(insert_query)
+        self.conn.commit()
 
 # collector = MainCollector()
 #
