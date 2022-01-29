@@ -4,6 +4,7 @@ from heapq import heappush, heappop
 
 from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 from NFTAutonomousVehicles.iisMotionCustomInterface.TaskSolverLoader import TaskSolverLoader
+from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
 from src.city.ZoneType import ZoneType
 from src.common.CommonFunctions import CommonFunctions
 from src.common.FemtocellLoader import FemtocellLoader
@@ -170,7 +171,7 @@ class ActorCollection:
                 heappush(proposed_routes, (shortest_proposed_route.getMetrics(),proposed_routes_counter, shortest_proposed_route))
                 proposed_routes_counter = proposed_routes_counter + 1
                 segments_without_solvers = segments_without_solvers.union(shortest_proposed_route.segments_without_solvers)
-                print(f"Characteristics of shortest path: {shortest_proposed_route.toJson()}")
+                # print(f"Characteristics of shortest path: {shortest_proposed_route.toJson()}")
 
                 if shortest_proposed_route.missing_NFTs != 0:
 
@@ -180,7 +181,7 @@ class ActorCollection:
                                                                                            newTargetLocation,
                                                                                            segments_without_solvers)
                         except:
-                            print(f"could not find route in graph without given segments {segments_without_solvers}")
+                            # print(f"could not find route in graph without given segments {segments_without_solvers}")
                             break
 
                         alternative_proposed_route = self.getProposedRoute(alternative_path, actor, self.secondsPerTick, solver_collection_names)
@@ -190,12 +191,12 @@ class ActorCollection:
                             break
 
                         proposed_routes_counter = proposed_routes_counter + 1
-                        print(f"segments without solver before union {segments_without_solvers}")
+                        # print(f"segments without solver before union {segments_without_solvers}")
                         count_of_segments_without_solvers_before = len(segments_without_solvers)
                         segments_without_solvers = segments_without_solvers.union(alternative_proposed_route.segments_without_solvers)
                         count_of_segments_without_solvers_after = len(segments_without_solvers)
-                        print(f"segments without solver after union {segments_without_solvers}")
-                        print(f"Characteristics of alternative path #{proposed_routes_counter}: {alternative_proposed_route.toJson()}")
+                        # print(f"segments without solver after union {segments_without_solvers}")
+                        # print(f"Characteristics of alternative path #{proposed_routes_counter}: {alternative_proposed_route.toJson()}")
 
                         if(count_of_segments_without_solvers_before == count_of_segments_without_solvers_after):
                             break
@@ -207,7 +208,7 @@ class ActorCollection:
                 best_proposed_route = heappop(proposed_routes)[2]
                 logger.logProposedRoute(actor,getDateTime(),len(proposed_routes)+1,shortest_proposed_route, best_proposed_route)
 
-                print(f"This route was chosen as BEST: {best_proposed_route.toJson()}")
+                # print(f"This route was chosen as BEST: {best_proposed_route.toJson()}")
 
                 #TODO compare best route with shortest route here! to have stats about route planning
 
@@ -303,6 +304,84 @@ class ActorCollection:
         #         print(f"{actorId} has NFT for currentTimestamp {nft}")
         #     else:
         #         print(f"{actorId} does not have NFT for {getDateTime()}")
+
+
+    def generateAndSendNFTTasks(self, logger):
+        timestamp = getDateTime()
+        for actorId in self.locationsTable.getAllIds():
+            vehicle: AutonomousVehicle = self.actorSet[int(actorId)]
+
+            if (timestamp in vehicle.active_proposed_route.timestamp_nft_dict):
+                nft = vehicle.active_proposed_route.timestamp_nft_dict[timestamp]
+
+                task = Task(vehicle=vehicle, size_in_megabytes=vehicle.sample_task.size_in_megabytes,
+                                  created_at=timestamp, limit_time=vehicle.sample_task.limit_time,
+                                  deadline_at=timestamp + timedelta(seconds=vehicle.sample_task.limit_time),
+                                  capacity_needed_to_solve=vehicle.sample_task.capacity_needed_to_solve,
+                                  solving_time=vehicle.sample_task.solving_time)
+                task.solver = nft.solver
+                task.nft = nft
+                nft.solver.receiveTask(task, nft.single_transfer_time)
+            else:
+                task = Task(vehicle=vehicle, size_in_megabytes=vehicle.sample_task.size_in_megabytes,
+                            created_at=timestamp, limit_time=vehicle.sample_task.limit_time,
+                            deadline_at=timestamp + timedelta(seconds=vehicle.sample_task.limit_time),
+                            capacity_needed_to_solve=vehicle.sample_task.capacity_needed_to_solve,
+                            solving_time=vehicle.sample_task.solving_time)
+                task.status = TaskStatus.FAILED_TO_FIND_SOLVER
+                logger.logTask(task)
+
+
+    def generateAndSendNonNFTTasks(self, logger,solver_collection_names):
+        from NFTAutonomousVehicles.taskProcessing.SolverFinder import SolverFinder
+        solver_finder = SolverFinder()
+
+        timestamp = getDateTime()
+        for actorId in self.locationsTable.getAllIds():
+            vehicle: AutonomousVehicle = self.actorSet[int(actorId)]
+
+            task = Task(vehicle=vehicle, size_in_megabytes=vehicle.sample_task.size_in_megabytes,
+                        created_at=timestamp, limit_time=vehicle.sample_task.limit_time,
+                        deadline_at=timestamp + timedelta(seconds=vehicle.sample_task.limit_time),
+                        capacity_needed_to_solve=vehicle.sample_task.capacity_needed_to_solve,
+                        solving_time=vehicle.sample_task.solving_time)
+
+            non_signed_nft = solver_finder.searchForTaskSolver(self.mapGrid, task, solver_collection_names)
+
+
+            if (non_signed_nft is not None):
+                non_signed_nft.solver.receiveTask(task, non_signed_nft.single_transfer_time)
+
+            else:
+                task = Task(vehicle=vehicle, size_in_megabytes=vehicle.sample_task.size_in_megabytes,
+                            created_at=timestamp, limit_time=vehicle.sample_task.limit_time,
+                            deadline_at=timestamp + timedelta(seconds=vehicle.sample_task.limit_time),
+                            capacity_needed_to_solve=vehicle.sample_task.capacity_needed_to_solve,
+                            solving_time=vehicle.sample_task.solving_time)
+                task.status = TaskStatus.FAILED_TO_FIND_SOLVER
+                logger.logTask(task)
+
+
+    def solveTasks(self, logger, processing_iteration_duration_seconds):
+        from NFTAutonomousVehicles.entities.TaskSolver import TaskSolver
+
+        timestamp = copy.deepcopy(getDateTime())
+        next_timestamp = timestamp + timedelta(seconds=self.secondsPerTick)
+
+        time_increment = self.secondsPerTick + processing_iteration_duration_seconds
+        while (timestamp < next_timestamp):
+            timestamp = timestamp + timedelta(seconds=time_increment)
+            for actorId in self.locationsTable.getAllIds():
+                solver: TaskSolver = self.actorSet[int(actorId)]
+                solver.solveTasks(timestamp, logger)
+
+
+    def setSolversProcessingIterationDurationInSeconds(self, processing_iteration_duration_seconds):
+        from NFTAutonomousVehicles.entities.TaskSolver import TaskSolver
+
+        for actorId in self.locationsTable.getAllIds():
+            solver: TaskSolver = self.actorSet[int(actorId)]
+            solver.setProcessingIterationDurationInSeconds(processing_iteration_duration_seconds)
 
     def getLocationPredictionsForNextIterations(self, nuOfIterations, movementBackwardsAllowed=True):
         """

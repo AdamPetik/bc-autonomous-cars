@@ -37,7 +37,7 @@ iismotion = IISMotion(radius=radius,
                       removeDeadends=True
                       )  # initialize IISMotion
 
-
+logger = MainCollector()
 
 nftVehicles = iismotion\
     .createActorCollection("nftVehicles", True, MovementStrategyType.PRELOADED_LOCATIONS_STRATEGY) \
@@ -57,10 +57,11 @@ taskSolvers = iismotion\
 # iismotion.getActorCollection("taskSolvers").generateTaskSolvers(30, 20)
 # iismotion.getActorCollection("taskSolvers").storeTaskSolvers("DENSE_30_20m_far.json")
 # taskSolvers.loadTaskSolversFromFile("DENSE_30_20m_far.json")
-# iismotion.getActorCollection("taskSolvers").loadTaskSolversFromFile("FirstSOLVERS.json")
+iismotion.getActorCollection("taskSolvers").loadTaskSolversFromFile("FirstSOLVERS.json")
+iismotion.getActorCollection("taskSolvers").setSolversProcessingIterationDurationInSeconds(0.01)
 
 
-logger = MainCollector()
+
 
 # method that moves agents for desired number of iterations
 # async because of "GUI"

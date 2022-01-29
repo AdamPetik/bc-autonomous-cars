@@ -21,7 +21,7 @@ class AutonomousVehicle(Movable):
         self.sample_task = Task(vehicle=self, size_in_megabytes=1, capacity_needed_to_solve=4, solving_time=0.1, limit_time=0.2)
         self.active_proposed_route = None
 
-    def receiveSolvedTask(self, task: Task) -> bool:
+    def receiveSolvedTask(self, task: Task, logger) -> bool:
         self.active_tasks.pop(task.id)
 
         if task.status == TaskStatus.SOLVED and task.returned_to_creator_at <= task.deadline_at:
@@ -30,3 +30,5 @@ class AutonomousVehicle(Movable):
         else:
             self.failed_tasks[task.id] = task
             task.solver.decreaseReputation()
+
+        logger.insertTask(task)

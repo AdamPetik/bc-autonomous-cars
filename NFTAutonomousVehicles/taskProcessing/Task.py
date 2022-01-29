@@ -10,6 +10,7 @@ class TaskStatus(enum.Enum):
     SOLVED = 3
     PROCESSING_FAILED = 4
     TASK_TIMED_OUT = 5
+    FAILED_TO_FIND_SOLVER = 6
 
 
 class Task:
@@ -29,6 +30,7 @@ class Task:
 
         self.size_in_megabytes = size_in_megabytes
         self.transfer_rate = transfer_rate
+        self.single_transfer_time = None
         self.status: TaskStatus = None
 
         self.created_at = created_at
