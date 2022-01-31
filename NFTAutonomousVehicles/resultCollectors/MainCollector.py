@@ -44,6 +44,7 @@ class MainCollector:
                                                 solved_by_task_solver_at TEXT,
                                                 returned_to_creator_at TEXT,
                                                 nft_id integer,
+                                                nft_signed integer,
                                                 nft_valid_from TEXT,
                                                 nft_valid_to TEXT,
                                                 nft_reserved_cores_each_iteration int,
@@ -78,6 +79,7 @@ class MainCollector:
         self.insertTaskStatus(3, "SOLVED")
         self.insertTaskStatus(4, "PROCESSING_FAILED")
         self.insertTaskStatus(5, "TASK_TIMED_OUT")
+        self.insertTaskStatus(6, "FAILED_TO_FIND_SOLVER")
         self.conn.commit()
 
     def insertTaskStatus(self, id, name):
@@ -100,26 +102,27 @@ class MainCollector:
                                 (task_id, vehicle_id, vehicle_type, solver_id, capacity_needed_to_solve, size_in_megabytes, single_transfer_time,
                                 status_id, created_at, deadline_at, deadline_interval, total_time_spent,
                                 received_by_task_solver_at, solved_by_task_solver_at, returned_to_creator_at,
-                                nft_id, nft_valid_from, nft_valid_to, nft_reserved_cores_each_iteration) 
+                                nft_id, nft_signed, nft_valid_from, nft_valid_to, nft_reserved_cores_each_iteration) 
                                 VALUES 
                                 ({task.id},{task.vehicle.id},{task.vehicle.vehicle_type},{solver_id},{task.capacity_needed_to_solve},{task.size_in_megabytes},{task.single_transfer_time},
-                                {task.status.value},'{task.created_at}','{task.deadline_at}',{task.getDeadlineInterval()}, {task.getTotalTimeSpent()},
+                                {task.status.value},'{task.created_at}','{task.deadline_at}','{task.getDeadlineInterval()}', {task.getTotalTimeSpent()},
                                 '{task.received_by_task_solver_at}','{task.solved_by_task_solver_at}','{task.returned_to_creator_at}'
-                                ,null, null, null, null)"""
+                                ,null, null, null, null, null)"""
 
         else:
             insert_query = f"""INSERT INTO task
                                 (task_id, vehicle_id, vehicle_type, solver_id, capacity_needed_to_solve, size_in_megabytes, single_transfer_time,
                                 status_id, created_at, deadline_at, deadline_interval, total_time_spent,
                                 received_by_task_solver_at, solved_by_task_solver_at, returned_to_creator_at,
-                                nft_id, nft_valid_from, nft_valid_to, nft_reserved_cores_each_iteration) 
+                                nft_id, nft_signed, nft_valid_from, nft_valid_to, nft_reserved_cores_each_iteration) 
                                 VALUES 
                                 ({task.id},{task.vehicle.id},{task.vehicle.vehicle_type},{solver_id},{task.capacity_needed_to_solve},{task.size_in_megabytes},{task.single_transfer_time},
-                                {task.status.value},'{task.created_at}','{task.deadline_at}',{task.getDeadlineInterval()}, {task.getTotalTimeSpent()},
+                                {task.status.value},'{task.created_at}','{task.deadline_at}','{task.getDeadlineInterval()}', '{task.getTotalTimeSpent()}',
                                 '{task.received_by_task_solver_at}','{task.solved_by_task_solver_at}','{task.returned_to_creator_at}'
-                                ,{task.nft.id},'{task.nft.valid_from}','{task.nft.valid_to}',{task.nft.reserved_cores_each_iteration})"""
+                                ,{task.nft.id},{task.nft.signed},'{task.nft.valid_from}','{task.nft.valid_to}',{task.nft.reserved_cores_each_iteration})"""
 
         cursor = self.conn.cursor()
+        # print(f"Insert: {insert_query}")
         cursor.execute(insert_query)
         self.conn.commit()
 

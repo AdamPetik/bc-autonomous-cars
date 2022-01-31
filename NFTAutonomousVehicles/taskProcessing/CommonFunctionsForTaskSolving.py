@@ -9,8 +9,8 @@ class CommonFunctionsForTaskSolving:
     def getConnectionSpeedInMegabytesPerSecond(self, distance):
         return 110 - (3 * distance)
 
-    # def getConnectionSpeedInMegabytesPerSecond(self, location_a: Location, location_b: Location):
-    #     return self.getConnectionSpeedInMegabytesPerSecond(self.com.getReal2dDistance(location_a, location_b))
+    def getConnectionSpeedInMegabytesPerSecondBetweenLocations(self, location_a: Location, location_b: Location):
+        return self.getConnectionSpeedInMegabytesPerSecond(self.com.getReal2dDistance(location_a, location_b))
 
     def getTransferTimeInSeconds(self, location_a: Location, location_b: Location, task_size_in_megabytes):
         speed = self.getConnectionSpeedInMegabytesPerSecond(self.com.getReal2dDistance(location_a, location_b))

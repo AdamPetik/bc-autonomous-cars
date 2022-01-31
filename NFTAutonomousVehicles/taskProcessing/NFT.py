@@ -24,8 +24,8 @@ class NFT:
         output = {}
         output["owner"] = self.owner.id
         output["solver"] = self.solver.id
-        output["valid_from"] = self.valid_from
-        output["valid_to"] = self.valid_to
+        output["valid_from"] = self.valid_from.strftime('%Y-%m-%d %H:%M:%S.%f')
+        output["valid_to"] = self.valid_to.strftime('%Y-%m-%d %H:%M:%S.%f')
         output["reserved_cores_each_iteration"] = self.reserved_cores_each_iteration
         output["single_transfer_time"] = self.single_transfer_time
         output["signed"] = self.signed

@@ -32,8 +32,9 @@ class SolverFinder:
         for solver in solvers_list:
             # direct allocation attempt
             single_transfer_time = self.com_solving.getTransferTimeInSeconds(task.vehicle.getLocation(), solver.getLocation(), task.size_in_megabytes)
+            transfer_rate = self.com_solving.getConnectionSpeedInMegabytesPerSecondBetweenLocations(task.vehicle.getLocation(), solver.getLocation())
             end_timestamp = start_timestamp +timedelta(seconds=task.solving_time ) + timedelta(seconds=(2 * single_transfer_time))
-            unsigned_nft = solver.getUnsignedNFT(start_timestamp, end_timestamp, task.capacity_needed_to_solve,single_transfer_time, task.vehicle)
+            unsigned_nft = solver.getUnsignedNFT(start_timestamp, end_timestamp, task.capacity_needed_to_solve, single_transfer_time, transfer_rate, task.vehicle)
             if unsigned_nft is not None:
                 # print("AVAILABLE SOLVER")
                 return unsigned_nft

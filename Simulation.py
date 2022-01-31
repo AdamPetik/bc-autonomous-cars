@@ -26,7 +26,10 @@ intersectionCheck = True  # check whether agents are located at the intersection
 gridRows = 5  # grid that world is split into (used to find closest pairs of agents when needed)
 
 secondsPerTick = 1  # each iteration will increment clock by 1 second
-noOfTicks = 5000  # number of iterations simulation will take
+processing_iteration_duration_seconds = 0.1
+noOfTicks = 100000  # number of iterations simulation will take
+
+
 
 iismotion = IISMotion(radius=radius,
                       location=location,
@@ -44,10 +47,10 @@ nftVehicles = iismotion\
     .addAutonomousVehicles(1, False, 0) \
     .setGuiEnabled(guiEnabled)
 
-basicVehicles = iismotion\
-    .createActorCollection("basicVehicles", True, MovementStrategyType.RANDOM_WAYPOINT_CITY) \
-    .addAutonomousVehicles(1, False, 1) \
-    .setGuiEnabled(guiEnabled)
+# basicVehicles = iismotion\
+#     .createActorCollection("basicVehicles", True, MovementStrategyType.RANDOM_WAYPOINT_CITY) \
+#     .addAutonomousVehicles(1, False, 1) \
+#     .setGuiEnabled(guiEnabled)
 
 
 taskSolvers = iismotion\
@@ -58,7 +61,7 @@ taskSolvers = iismotion\
 # iismotion.getActorCollection("taskSolvers").storeTaskSolvers("DENSE_30_20m_far.json")
 # taskSolvers.loadTaskSolversFromFile("DENSE_30_20m_far.json")
 iismotion.getActorCollection("taskSolvers").loadTaskSolversFromFile("FirstSOLVERS.json")
-iismotion.getActorCollection("taskSolvers").setSolversProcessingIterationDurationInSeconds(0.01)
+iismotion.getActorCollection("taskSolvers").setSolversProcessingIterationDurationInSeconds(processing_iteration_duration_seconds)
 
 
 
@@ -73,12 +76,12 @@ async def simulate():
         print(f"---------------- step: {step} ---------------- dateTime : {getDateTime()} ----------------")
         stepStart = time.time()
 
-        basicVehicles.planRoutesForNonNFTVehicles(newDay)
-        nftVehicles.planRoutesForNFTVehicles(['taskSolvers'], logger)
+        # basicVehicles.planRoutesForNonNFTVehicles(newDay)
+        nftVehicles.planRoutesForNFTVehicles(['taskSolvers'], logger, processing_iteration_duration_seconds)
         iismotion.stepAllCollections(newDay, logger)
 
-
-
+        nftVehicles.generateAndSendNFTTasks(logger)
+        taskSolvers.solveTasks(logger, processing_iteration_duration_seconds)
 
 
 
