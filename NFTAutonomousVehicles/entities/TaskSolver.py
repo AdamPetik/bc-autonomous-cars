@@ -47,10 +47,10 @@ class TaskSolver(Placeable):
         task.single_transfer_time = transfer_seconds
         task.received_by_task_solver_at = task.created_at + + timedelta(seconds=transfer_seconds)
         if(task.nft.signed == False):
-            heappush(self.basic_tasks_fifo, (task.received_by_task_solver_at, task))
+            heappush(self.basic_tasks_fifo, (task.received_by_task_solver_at, task.id, task))
         else:
             if task.nft.valid_from <= task.received_by_task_solver_at <= task.nft.valid_to:
-                heappush(self.nft_tasks_fifo, (task.received_by_task_solver_at, task))
+                heappush(self.nft_tasks_fifo, (task.received_by_task_solver_at, task.id, task))
             else:
                 raise ValueError(f"Submitted task with included NFT is out of reserved timeframe\n"
                                  f"task.received_by_task_solver_at: {task.received_by_task_solver_at}\n"
@@ -69,7 +69,7 @@ class TaskSolver(Placeable):
         from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
         # print(f"Solver: {self.id} solving NFT tasks for timestamp:{timestamp}")
         while len(self.nft_tasks_fifo) > 0:
-            nft_task = self.nft_tasks_fifo[0][1]
+            nft_task = self.nft_tasks_fifo[0][2]
             if timestamp >= nft_task.received_by_task_solver_at:
                 if self.verifyNFTValidForTimestamp(nft_task.nft, timestamp):
                     nft_task.status = TaskStatus.BEING_PROCESSED
@@ -79,7 +79,7 @@ class TaskSolver(Placeable):
                         nft_task.status = TaskStatus.SOLVED
                         nft_task.solved_by_task_solver_at = timestamp
                         nft_task.returned_to_creator_at = timestamp + timedelta(seconds=nft_task.single_transfer_time)
-                        nft_task = heappop(self.nft_tasks_fifo)[1]
+                        nft_task = heappop(self.nft_tasks_fifo)[2]
                         nft_task.vehicle.receiveSolvedTask(nft_task, logger)
                 else:
                     raise ValueError(
@@ -90,21 +90,21 @@ class TaskSolver(Placeable):
     def solveTasksFromBasicTaskFifo(self, timestamp, logger):
         from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
 
-        while len(self.basic_tasks_fifo) > 0 and self.getAvailableCapacity(timestamp) > 0:
-            basic_task = self.basic_tasks_fifo[0][1]
+        while len(self.basic_tasks_fifo) > 0 and self.getAvailableCapacityForTimestamp(timestamp) > 0:
+            basic_task = self.basic_tasks_fifo[0][2]
             if timestamp >= basic_task.received_by_task_solver_at:
 
-                capacity_used = min(basic_task.capacity_needed_to_solve, self.getAvailableCapacity(timestamp))
+                capacity_used = min(basic_task.capacity_needed_to_solve, self.getAvailableCapacityForTimestamp(timestamp))
 
                 basic_task.status = TaskStatus.BEING_PROCESSED
                 basic_task.capacity_needed_to_solve -= capacity_used
-                self.reduceSolvingCapacity(timestamp, capacity_used)
+                self.reduceSolvingCapacityForTimestamp(timestamp, capacity_used)
 
                 if basic_task.capacity_needed_to_solve <= 0:
                     basic_task.status = TaskStatus.SOLVED
                     basic_task.solved_by_task_solver_at = timestamp
-                    basic_task.received_by_task_solver_at = timestamp + timedelta(seconds=basic_task.single_transfer_time)
-                    basic_task = heappop(self.basic_tasks_fifo)[1]
+                    basic_task.returned_to_creator_at = timestamp + timedelta(seconds=basic_task.single_transfer_time)
+                    basic_task = heappop(self.basic_tasks_fifo)[2]
                     basic_task.vehicle.receiveSolvedTask(basic_task, logger)
             else:
                 break

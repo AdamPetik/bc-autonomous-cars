@@ -202,8 +202,6 @@ class ActorCollection:
                             break
 
                         # self.map.plotRoute(alternative_path, str(proposed_routes_counter))
-                #TODO obtain NFTs for best route
-                #TODO nfts should be obtained during planning, but obtained tokens would be invalid, than need to be registered
                 #also each vehicle should have sample task prepared without timestamps
                 best_proposed_route = heappop(proposed_routes)[2]
                 logger.logProposedRoute(actor,getDateTime(),len(proposed_routes)+1,shortest_proposed_route, best_proposed_route)
@@ -327,13 +325,13 @@ class ActorCollection:
                             created_at=timestamp, limit_time=vehicle.sample_task.limit_time,
                             deadline_at=timestamp + timedelta(seconds=vehicle.sample_task.limit_time),
                             capacity_needed_to_solve=vehicle.sample_task.capacity_needed_to_solve,
-                            solving_time=-1)
-                task.single_transfer_time = -1
+                            solving_time='null')
+                task.single_transfer_time = 'null'
                 task.status = TaskStatus.FAILED_TO_FIND_SOLVER
                 logger.logTask(task)
 
 
-    def generateAndSendNonNFTTasks(self, logger,solver_collection_names):
+    def generateAndSendNonNFTTasks(self, solver_collection_names, logger, processing_iteration_duration_seconds):
         from NFTAutonomousVehicles.taskProcessing.SolverFinder import SolverFinder
         solver_finder = SolverFinder()
 
@@ -345,20 +343,21 @@ class ActorCollection:
                         created_at=timestamp, limit_time=vehicle.sample_task.limit_time,
                         deadline_at=timestamp + timedelta(seconds=vehicle.sample_task.limit_time),
                         capacity_needed_to_solve=vehicle.sample_task.capacity_needed_to_solve,
-                        solving_time=vehicle.sample_task.solving_time)
+                        solving_time=processing_iteration_duration_seconds)
 
             non_signed_nft = solver_finder.searchForTaskSolver(self.mapGrid, task, solver_collection_names)
 
-
             if (non_signed_nft is not None):
+                task.nft = non_signed_nft
                 non_signed_nft.solver.receiveTask(task, non_signed_nft.single_transfer_time)
-
+                task.solver = non_signed_nft.solver
             else:
                 task = Task(vehicle=vehicle, size_in_megabytes=vehicle.sample_task.size_in_megabytes,
                             created_at=timestamp, limit_time=vehicle.sample_task.limit_time,
                             deadline_at=timestamp + timedelta(seconds=vehicle.sample_task.limit_time),
                             capacity_needed_to_solve=vehicle.sample_task.capacity_needed_to_solve,
-                            solving_time=vehicle.sample_task.solving_time)
+                            solving_time='null')
+                task.single_transfer_time = 'null'
                 task.status = TaskStatus.FAILED_TO_FIND_SOLVER
                 logger.logTask(task)
 

@@ -45,7 +45,7 @@ class Task:
 
     def getTotalTimeSpent(self):
         if(self.returned_to_creator_at is None):
-            return -1
+            return 'null'
         return self.returned_to_creator_at - self.created_at
 
     def getDeadlineInterval(self):
