@@ -32,3 +32,28 @@ class AutonomousVehicle(Movable):
             task.solver.decreaseReputation()
 
         logger.logTask(task)
+
+    def getGeoStruct(self):
+        '''
+        returns structure of data needed when creating geoJSON representation of this object
+        @return: structure with object details, use json.dumps(obj.getGeoJson()) to obtain JSON
+        '''
+        data = {}
+        data["id"] = self.id
+        data["type"] = "Feature"
+
+        properties = {}
+        properties["type"] = self.__class__.__name__
+        properties["id"] = self.id
+        properties["gridCoordinates"] = self.getLocation().getGridCoordinates()
+        properties["vehicle_type"] = self.vehicle_type
+        # properties["nearPlaceables"] = self.nearPlaceablesCounter
+        data["properties"] = properties
+
+        geometry = {}
+        geometry["type"] = "Point"
+        location = self.getLocation()
+        geometry["coordinates"] = [location.getLongitude(), location.getLatitude(), location.getAltitude()]
+        data["geometry"] = geometry
+
+        return data

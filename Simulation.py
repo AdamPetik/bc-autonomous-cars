@@ -44,12 +44,12 @@ logger = MainCollector()
 
 nftVehicles = iismotion\
     .createActorCollection("nftVehicles", True, MovementStrategyType.PRELOADED_LOCATIONS_STRATEGY) \
-    .addAutonomousVehicles(20, False, 0) \
+    .addAutonomousVehicles(10, False, 0) \
     .setGuiEnabled(guiEnabled)
 
 basicVehicles = iismotion\
     .createActorCollection("basicVehicles", True, MovementStrategyType.RANDOM_WAYPOINT_CITY) \
-    .addAutonomousVehicles(20, False, 1) \
+    .addAutonomousVehicles(1, False, 1) \
     .setGuiEnabled(guiEnabled)
 
 
@@ -57,10 +57,10 @@ taskSolvers = iismotion\
     .createActorCollection("taskSolvers", False, MovementStrategyType.DRONE_MOVEMENT_CUDA) \
     .setGuiEnabled(guiEnabled)
 
-# iismotion.getActorCollection("taskSolvers").generateTaskSolvers(30, 20)
-# iismotion.getActorCollection("taskSolvers").storeTaskSolvers("manhattan_small_30_20m_far.json")
-# taskSolvers.loadTaskSolversFromFile("DENSE_30_20m_far.json")
-iismotion.getActorCollection("taskSolvers").loadTaskSolversFromFile("manhattan_small_30_20m_far.json")
+# iismotion.getActorCollection("taskSolvers").generateTaskSolvers(20, 30)
+# iismotion.getActorCollection("taskSolvers").storeTaskSolvers("middleMap.json")
+taskSolvers.loadTaskSolversFromFile("middleMap.json")
+# iismotion.getActorCollection("taskSolvers").loadTaskSolversFromFile("smallV1_2_50.json")
 iismotion.getActorCollection("taskSolvers").setSolversProcessingIterationDurationInSeconds(processing_iteration_duration_seconds)
 
 
@@ -76,7 +76,7 @@ async def simulate():
         print(f"---------------- step: {step} ---------------- dateTime : {getDateTime()} ----------------")
         stepStart = time.time()
 
-        # basicVehicles.planRoutesForNonNFTVehicles(newDay)
+        basicVehicles.planRoutesForNonNFTVehicles(newDay)
         nftVehicles.planRoutesForNFTVehicles(['taskSolvers'], logger, processing_iteration_duration_seconds)
         iismotion.stepAllCollections(newDay, logger)
 

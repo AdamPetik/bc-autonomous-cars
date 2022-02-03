@@ -15,7 +15,7 @@ class TaskSolver(Placeable):
 
     def __init__(self, locationsTable, map:Map):
         super(TaskSolver, self).__init__(locationsTable, map)
-        self.cpu_count = 8
+        self.cpu_count = 6
         self.processing_iteration_duration_seconds = None
         self.decimal_places = 3
         self.solving_capacity = {}
