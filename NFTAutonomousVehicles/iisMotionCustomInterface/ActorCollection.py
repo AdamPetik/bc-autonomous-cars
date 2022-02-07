@@ -242,6 +242,7 @@ class ActorCollection:
 
         current_location = copy.deepcopy(actor.getLocation())
         previous_target = copy.deepcopy(current_location)
+        actor_location = copy.deepcopy(current_location)
         while len(path_of_locations) > 0:
             # print(f"Route size: {len(route)}")
             next_target = path_of_locations.pop(0)
@@ -255,7 +256,7 @@ class ActorCollection:
                 # print(f"----stepCount={route_step_count}")
                 # print(f"preloading locaiton for timestamp: {timestamp}")
                 timestamp_location_dict[timestamp] = copy.deepcopy(current_location)
-
+                actor.setLocation(current_location)
                 dummy_task = Task(vehicle=actor,size_in_megabytes=actor.sample_task.size_in_megabytes,
                                   created_at=timestamp, limit_time=actor.sample_task.limit_time, deadline_at=timestamp+timedelta(seconds=actor.sample_task.limit_time),
                                   capacity_needed_to_solve=actor.sample_task.capacity_needed_to_solve,
@@ -279,7 +280,7 @@ class ActorCollection:
         # NOTE - supposed check of segments_without_solvers, but edges at destination/start point cant be added to segments_without_solvers
         # if(missing_NFTs>0 and len(segments_without_solvers)==0):
         #     raise ValueError(f"segments_without_provider is not counted properly| missingNFTs: {missing_NFTs} but segments_without_provider: {len(segments_without_solvers)}")
-
+        actor.setLocation(actor_location)
         proposed_route = ProposedRoute(path_of_locations=path_of_locations,
                                        timestamp_location_dict=timestamp_location_dict,
                                       timestamp_nft_dict=timestamp_nft_dict,
