@@ -1,15 +1,18 @@
 # from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 # from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
 from heapq import heappush, heappop
+from NFTAutonomousVehicles.utils.datetime_interval import DatetimeInterval
 
 from src.city.Map import Map
 from src.placeable.Placeable import Placeable
-from collections import deque
+from collections import defaultdict, deque
 from datetime import datetime, timedelta
 
 from src.common.SimulationClock import *
 from decimal import *
 import math
+import pandas as pd
+
 
 class TaskSolver(Placeable):
 
@@ -27,6 +30,14 @@ class TaskSolver(Placeable):
 
         self.no_of_successful_tasks = 0
         self.no_of_failed_tasks = 0
+
+        self.resource_blocks = 50
+        self.rb_free = defaultdict(lambda: self.resource_blocks)
+
+        self.tx_power = 0.0316 # wats
+        self.tx_frequency = 2e9 # Hz
+        self.bandwidth = 10e6 # Hz  ==  10 MHz
+        self.association_coverage_radius = 900 # m
 
     def setProcessingIterationDurationInSeconds(self, value):
         self.processing_iteration_duration_seconds = value
@@ -124,9 +135,34 @@ class TaskSolver(Placeable):
 
     def signNFT(self, nft):
         self.reduceSolvingCapacityBetweenTimestamps(nft.valid_from, nft.valid_to, nft.reserved_cores_each_iteration)
+        self.reduce_rbs(nft.valid_from, nft.valid_to, nft.reserved_rbs)
         self.nft_collection[nft.id] = nft
         nft.signed = True
         return nft
+
+    def reduce_rbs(self, start: datetime, end: datetime, reserved_rbs: int):
+        start_millis = int(round(
+                timestampToMillisecondsSinceStart(start), self.decimal_places))
+        end_millis = int(round(
+                timestampToMillisecondsSinceStart(end), self.decimal_places))
+
+        step = 10**self.decimal_places
+        for rounded_millis_since_start in range(start_millis, end_millis, step):
+            if self.rb_free[rounded_millis_since_start] >= reserved_rbs:
+                self.rb_free[rounded_millis_since_start] -= reserved_rbs
+            else:
+                raise Exception("Cannot reduce rbs!")
+
+    def max_available_rbs(self, start: datetime, end: datetime) -> int:
+        start_millis = int(round(
+                timestampToMillisecondsSinceStart(start), self.decimal_places))
+        end_millis = int(round(
+                timestampToMillisecondsSinceStart(end), self.decimal_places))
+        rbs = self.resource_blocks
+        step = 10**self.decimal_places
+        for rounded_millis_since_start in range(start_millis, end_millis, step):
+            rbs = min(rbs, self.rb_free[rounded_millis_since_start])
+        return rbs
 
     def removeNFTFromCollection(self, nft):
         self.nft_collection.pop(nft.id)

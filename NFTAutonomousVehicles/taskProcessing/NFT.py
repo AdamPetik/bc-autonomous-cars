@@ -7,7 +7,7 @@ from src.common.UniqueID import UniqueID
 
 class NFT:
 
-    def __init__(self, owner: AutonomousVehicle, solver: TaskSolver, valid_from, valid_to, reserved_cores, single_transfer_time, transfer_rate, signed):
+    def __init__(self, owner: AutonomousVehicle, solver: TaskSolver, valid_from, valid_to, reserved_cores, single_transfer_time, transfer_rate, signed, reserved_rbs=0):
         uid = UniqueID()
         self.id = uid.getId()
 
@@ -20,6 +20,8 @@ class NFT:
         self.transfer_rate = transfer_rate
         self.signed = signed
 
+        self.reserved_rbs = reserved_rbs
+
     def toJson(self) ->str:
         output = {}
         output["owner"] = self.owner.id
@@ -30,4 +32,5 @@ class NFT:
         output["single_transfer_time"] = self.single_transfer_time
         output["signed"] = self.signed
         output["transfer_rate"] = self.transfer_rate
+        output["reserved_rbs"] = self.reserved_rbs
         return json.dumps(output, indent=2)
