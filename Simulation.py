@@ -77,12 +77,12 @@ async def simulate():
         stepStart = time.time()
 
         basicVehicles.planRoutesForNonNFTVehicles(newDay)
-        nftVehicles.planRoutesForNFTVehicles(['taskSolvers'], logger, processing_iteration_duration_seconds)
+        nftVehicles.planRoutesForNFTVehicles(['taskSolvers'], logger)
         iismotion.stepAllCollections(newDay, logger)
 
         nftVehicles.generateAndSendNFTTasks(logger)
-        basicVehicles.generateAndSendNonNFTTasks(['taskSolvers'], logger, processing_iteration_duration_seconds)
-        taskSolvers.solveTasks(logger, processing_iteration_duration_seconds)
+        basicVehicles.generateAndSendNonNFTTasks(['taskSolvers'], logger)
+        taskSolvers.solveTasks(logger)
 
 
 

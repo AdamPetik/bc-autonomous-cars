@@ -13,7 +13,7 @@ class TaskSolverLoader:
     def __init__(self):
         self.com = CommonFunctions()
 
-    def getTaskSolvers(self,locationsTable, map, count, minRadius):
+    def getTaskSolvers(self,locationsTable, map, count, minRadius, dt):
         locations = []
         madeSolvers = []
         for i in range(0, count):
@@ -22,7 +22,7 @@ class TaskSolverLoader:
                 location = map.getRandomPoint()
             locations.append(location)
 
-            solver = TaskSolver(locationsTable, map)
+            solver = TaskSolver(locationsTable, map, dt)
             x, y = map.mapGrid.getGridCoordinates(location)
             location.setGridCoordinates(x, y)
             solver.tableRow = locationsTable.insertNewActor(solver)
@@ -30,7 +30,7 @@ class TaskSolverLoader:
             madeSolvers.append(solver)
         return madeSolvers
 
-    def loadTaskSolversFromFile(self,locationsTable, map, filename):
+    def loadTaskSolversFromFile(self,locationsTable, map, filename, dt):
         madeSolvers = []
         if os.path.exists("iism_cache/taskSolverCache/" + filename):
             with open("iism_cache/taskSolverCache/" + filename) as cachedData:
@@ -41,7 +41,7 @@ class TaskSolverLoader:
                 location.longitude = item['longitude']
                 location.latitude = item['latitude']
 
-                taskSolver = TaskSolver(locationsTable, map)
+                taskSolver = TaskSolver(locationsTable, map, dt)
                 x, y = map.mapGrid.getGridCoordinates(location)
                 location.setGridCoordinates(x, y)
                 taskSolver.tableRow = locationsTable.insertNewActor(taskSolver)

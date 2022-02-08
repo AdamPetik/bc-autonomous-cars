@@ -35,12 +35,12 @@ class SolverFinder:
             single_transfer_time = self.com_solving.getTransferTimeInSeconds(task.vehicle.getLocation(), solver.getLocation(), task.size_in_megabytes)
             transfer_rate = self.com_solving.getConnectionSpeedInMegabytesPerSecondBetweenLocations(task.vehicle.getLocation(), solver.getLocation())
             end_timestamp = start_timestamp +timedelta(seconds=task.solving_time ) + timedelta(seconds=(2 * single_transfer_time))
-            unsigned_nft = solver.getUnsignedNFT(start_timestamp, end_timestamp, task.capacity_needed_to_solve, single_transfer_time, transfer_rate, task.vehicle)
+            unsigned_nft = solver.getUnsignedNFT(start_timestamp, end_timestamp, task.instruction_count / task.solving_time, single_transfer_time, transfer_rate, task.vehicle)
             if unsigned_nft is not None:
                 # print("AVAILABLE SOLVER")
                 return unsigned_nft
 
-        # print(f"Solver was not available for timestamp {start_timestamp}-{task.deadline_at} capacity:{task.capacity_needed_to_solve}")
+        # print(f"Solver was not available for timestamp {start_timestamp}-{task.deadline_at} capacity:{task.instruction_count}")
 
         return None
 
@@ -52,6 +52,7 @@ class SolverFinder:
     ) -> Union[None,NFT]:
         effective_radius = 900
         epsilon_mbps = 1
+        epsilon_ips = 1
 
         vehicle_loc = task.vehicle.getLocation()
         potential_solvers = map_grid.getActorsInRadius(
@@ -65,13 +66,14 @@ class SolverFinder:
         min_data_rate_mbps += epsilon_mbps
 
         start_timestamp = task.created_at
-        end_timestamp = start_timestamp + timedelta(seconds=task.solving_time)
-
+        end_timestamp = start_timestamp + timedelta(seconds=task.limit_time)
+        
+        ips_required = task.instruction_count / task.solving_time + epsilon_ips
         result = search_best_solver(
             vehicle_loc,
             min_data_rate_mbps,
             potential_solvers,
-            task.capacity_needed_to_solve,
+            ips_required,
             (start_timestamp, end_timestamp)
         )
 
@@ -84,7 +86,7 @@ class SolverFinder:
         nft_unsigned: NFT = solver.getUnsignedNFT(
             start_timestamp,
             end_timestamp,
-            task.capacity_needed_to_solve,
+            ips_required,
             transfer_time,
             datarate,
             task.vehicle
@@ -118,7 +120,7 @@ class SolverFinder:
     #         nft = None
     #         for solver in solvers_list:
     #             #direct allocation attempt
-    #             nft = solver.reserveSolvingCapacity(start_timestamp, end_timestamp, task.capacity_needed_to_solve, task.vehicle)
+    #             nft = solver.reserveSolvingCapacity(start_timestamp, end_timestamp, task.instruction_count, task.vehicle)
     #             if nft is not None:
     #                 #FOUND solver with available capacity! we can break loop
     #                 break
@@ -133,7 +135,7 @@ def search_best_solver(
     location: Location,
     min_data_rate_mbps: float,
     base_stations: List[TaskSolver],
-    required_hw_power: float,
+    required_ips: float,
     timeinterval: Tuple[datetime, datetime],
 ) -> Union[None, Tuple[int, TaskSolver, float, float]]:
     """Search best task solver.
@@ -153,7 +155,7 @@ def search_best_solver(
     l = []
     for bs in base_stations:
         if not bs.checkAvailableCapacityBetweenTimestamps(
-                *timeinterval, required_hw_power):
+                *timeinterval, required_ips):
             continue
 
         # rbs = get_available_rb(location, bs)
