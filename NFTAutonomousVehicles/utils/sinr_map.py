@@ -69,7 +69,7 @@ class SINRMap:
 
     def _loc_wrap(self, l: Location, fun, *args, **kwargs) -> Any:
         if self.grid is None:
-            return fun(l.getGridXcoor(), l.getGridXcoor(), *args, **kwargs)
+            return fun(l.getGridXcoor(), l.getGridYcoor(), *args, **kwargs)
         else:
             return fun(*self.grid.coordinates(l), *args, **kwargs)
 
