@@ -70,6 +70,7 @@ class ActorCollection:
         self.attractors = []
         self.guiEnabled = False
         self.com = CommonFunctions()
+        self.sinr_map = None
 
 
     def setGuiEnabled(self, value: bool) -> 'ActorCollection':
@@ -149,7 +150,7 @@ class ActorCollection:
 
 
 
-    def planRoutesForNFTVehicles(self, solver_collection_names, logger, processing_iteration_duration_seconds):
+    def planRoutesForNFTVehicles(self, solver_collection_names, logger):
         # print("planRouteAccordingToConnections")
         for actorId in self.locationsTable.getAllIds():
             # print(f"actor#{actorId}")
@@ -166,7 +167,7 @@ class ActorCollection:
                 segments_without_solvers = set()
                 suitable_route_found = False
                 shortest_path_of_locations = self.map.getRouteBetweenNodes(actor.getLocation(), newTargetLocation)
-                shortest_proposed_route = self.getProposedRoute(shortest_path_of_locations, actor, self.secondsPerTick, solver_collection_names, processing_iteration_duration_seconds)
+                shortest_proposed_route = self.getProposedRoute(shortest_path_of_locations, actor, self.secondsPerTick, solver_collection_names)
                 shortest_proposed_route.index = proposed_routes_counter
                 heappush(proposed_routes, (shortest_proposed_route.getMetrics(),proposed_routes_counter, shortest_proposed_route))
                 proposed_routes_counter = proposed_routes_counter + 1
@@ -184,7 +185,7 @@ class ActorCollection:
                             # print(f"could not find route in graph without given segments {segments_without_solvers}")
                             break
 
-                        alternative_proposed_route = self.getProposedRoute(alternative_path, actor, self.secondsPerTick, solver_collection_names, processing_iteration_duration_seconds)
+                        alternative_proposed_route = self.getProposedRoute(alternative_path, actor, self.secondsPerTick, solver_collection_names)
                         alternative_proposed_route.index = proposed_routes_counter
                         heappush(proposed_routes, (alternative_proposed_route.getMetrics(), proposed_routes_counter, alternative_proposed_route))
                         if(alternative_proposed_route.missing_NFTs == 0):
@@ -216,12 +217,12 @@ class ActorCollection:
                 actor.active_proposed_route = best_proposed_route
 
 
-    def getProposedRoute(self, path_of_locations, actor, secondsPerTick, solver_collection_names, processing_iteration_duration_seconds):
+    def getProposedRoute(self, path_of_locations, actor, secondsPerTick, solver_collection_names):
         from NFTAutonomousVehicles.taskProcessing.SolverFinder import SolverFinder
         from NFTAutonomousVehicles.taskProcessing.Task import Task
         origin_location = path_of_locations[0]
         destination_location = path_of_locations[-1]
-        solver_finder = SolverFinder()
+        solver_finder = SolverFinder(self.sinr_map)
 
         # print(f"----getNFTsForRoute----")
         timestamp = copy.deepcopy(getDateTime())
@@ -259,9 +260,9 @@ class ActorCollection:
                 actor.setLocation(current_location)
                 dummy_task = Task(vehicle=actor,size_in_megabytes=actor.sample_task.size_in_megabytes,
                                   created_at=timestamp, limit_time=actor.sample_task.limit_time, deadline_at=timestamp+timedelta(seconds=actor.sample_task.limit_time),
-                                  capacity_needed_to_solve=actor.sample_task.capacity_needed_to_solve,
-                                  solving_time=processing_iteration_duration_seconds)
-                obtained_nft = solver_finder.searchForTaskSolver(self.mapGrid,task=dummy_task,solver_collection_names=solver_collection_names)
+                                  instruction_count=actor.sample_task.instruction_count,
+                                  solving_time=actor.sample_task.solving_time)
+                obtained_nft = solver_finder.searchForTaskSolverSINR(self.mapGrid,task=dummy_task,solver_collection_names=solver_collection_names)
                 if(obtained_nft is None):
                     missing_NFTs = missing_NFTs + 1
                     if (previous_target.equlsWithLocation(origin_location)==False and
@@ -316,7 +317,7 @@ class ActorCollection:
                 task = Task(vehicle=vehicle, size_in_megabytes=vehicle.sample_task.size_in_megabytes,
                                   created_at=timestamp, limit_time=vehicle.sample_task.limit_time,
                                   deadline_at=timestamp + timedelta(seconds=vehicle.sample_task.limit_time),
-                                  capacity_needed_to_solve=vehicle.sample_task.capacity_needed_to_solve,
+                                  instruction_count=vehicle.sample_task.instruction_count,
                                   solving_time=vehicle.sample_task.solving_time)
                 task.solver = nft.solver
                 task.nft = nft
@@ -325,16 +326,16 @@ class ActorCollection:
                 task = Task(vehicle=vehicle, size_in_megabytes=vehicle.sample_task.size_in_megabytes,
                             created_at=timestamp, limit_time=vehicle.sample_task.limit_time,
                             deadline_at=timestamp + timedelta(seconds=vehicle.sample_task.limit_time),
-                            capacity_needed_to_solve=vehicle.sample_task.capacity_needed_to_solve,
+                            instruction_count=vehicle.sample_task.instruction_count,
                             solving_time='null')
                 task.single_transfer_time = 'null'
                 task.status = TaskStatus.FAILED_TO_FIND_SOLVER
                 logger.logTask(task)
 
 
-    def generateAndSendNonNFTTasks(self, solver_collection_names, logger, processing_iteration_duration_seconds):
+    def generateAndSendNonNFTTasks(self, solver_collection_names, logger):
         from NFTAutonomousVehicles.taskProcessing.SolverFinder import SolverFinder
-        solver_finder = SolverFinder()
+        solver_finder = SolverFinder(self.sinr_map)
 
         timestamp = getDateTime()
         for actorId in self.locationsTable.getAllIds():
@@ -343,10 +344,10 @@ class ActorCollection:
             task = Task(vehicle=vehicle, size_in_megabytes=vehicle.sample_task.size_in_megabytes,
                         created_at=timestamp, limit_time=vehicle.sample_task.limit_time,
                         deadline_at=timestamp + timedelta(seconds=vehicle.sample_task.limit_time),
-                        capacity_needed_to_solve=vehicle.sample_task.capacity_needed_to_solve,
-                        solving_time=processing_iteration_duration_seconds)
+                        instruction_count=vehicle.sample_task.instruction_count,
+                        solving_time=vehicle.sample_task.solving_time)
 
-            non_signed_nft = solver_finder.searchForTaskSolver(self.mapGrid, task, solver_collection_names)
+            non_signed_nft = solver_finder.searchForTaskSolverSINR(self.mapGrid, task, solver_collection_names)
 
             if (non_signed_nft is not None):
                 task.nft = non_signed_nft
@@ -356,26 +357,26 @@ class ActorCollection:
                 task = Task(vehicle=vehicle, size_in_megabytes=vehicle.sample_task.size_in_megabytes,
                             created_at=timestamp, limit_time=vehicle.sample_task.limit_time,
                             deadline_at=timestamp + timedelta(seconds=vehicle.sample_task.limit_time),
-                            capacity_needed_to_solve=vehicle.sample_task.capacity_needed_to_solve,
+                            instruction_count=vehicle.sample_task.instruction_count,
                             solving_time='null')
                 task.single_transfer_time = 'null'
                 task.status = TaskStatus.FAILED_TO_FIND_SOLVER
                 logger.logTask(task)
 
 
-    def solveTasks(self, logger, processing_iteration_duration_seconds):
+    def solveTasks(self, logger):
         from NFTAutonomousVehicles.entities.TaskSolver import TaskSolver
 
         timestamp = copy.deepcopy(getDateTime())
-        next_timestamp = timestamp + timedelta(seconds=self.secondsPerTick)
+        # next_timestamp = timestamp + timedelta(seconds=self.secondsPerTick)
 
-        time_increment = processing_iteration_duration_seconds
-        print(f"FIRST timestamp before loop: {timestamp} nextTImestamp: {next_timestamp} and increment: {time_increment}")
-        while (timestamp < next_timestamp):
-            for actorId in self.locationsTable.getAllIds():
-                solver: TaskSolver = self.actorSet[int(actorId)]
-                solver.solveTasks(timestamp, logger)
-            timestamp = timestamp + timedelta(seconds=time_increment)
+        # time_increment = processing_iteration_duration_seconds
+        # print(f"FIRST timestamp before loop: {timestamp} nextTImestamp: {next_timestamp} and increment: {time_increment}")
+        # while (timestamp < next_timestamp):
+        for actorId in self.locationsTable.getAllIds():
+            solver: TaskSolver = self.actorSet[int(actorId)]
+            solver.solveTasks(timestamp, logger)
+            # timestamp = timestamp + timedelta(seconds=time_increment)
 
 
     def setSolversProcessingIterationDurationInSeconds(self, processing_iteration_duration_seconds):
@@ -541,7 +542,7 @@ class ActorCollection:
 
     def generateTaskSolvers(self, count, minRadius) -> 'ActorCollection':
         solverLoader = TaskSolverLoader()
-        taskSolvers = solverLoader.getTaskSolvers(self.locationsTable, self.map, count, minRadius)
+        taskSolvers = solverLoader.getTaskSolvers(self.locationsTable, self.map, count, minRadius, self.secondsPerTick)
         for solver in taskSolvers:
             self.actorSet[solver.id] = solver
         return self
@@ -557,7 +558,7 @@ class ActorCollection:
 
     def loadTaskSolversFromFile(self, filename) -> 'ActorCollection':
         solverLoader = TaskSolverLoader()
-        taskSolvers = solverLoader.loadTaskSolversFromFile(self.locationsTable, self.map, filename)
+        taskSolvers = solverLoader.loadTaskSolversFromFile(self.locationsTable, self.map, filename, self.secondsPerTick)
         for solver in taskSolvers:
             self.actorSet[solver.id] = solver
         return self

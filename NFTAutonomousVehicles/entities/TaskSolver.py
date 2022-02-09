@@ -1,6 +1,8 @@
 # from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 # from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
 from heapq import heappush, heappop
+import heapq
+from typing import Generator
 from NFTAutonomousVehicles.utils.datetime_interval import DatetimeInterval
 
 from src.city.Map import Map
@@ -16,14 +18,14 @@ import pandas as pd
 
 class TaskSolver(Placeable):
 
-    def __init__(self, locationsTable, map:Map):
+    def __init__(self, locationsTable, map:Map, simulation_dt):
         super(TaskSolver, self).__init__(locationsTable, map)
-        self.cpu_count = 6
-        self.processing_iteration_duration_seconds = None
-        self.decimal_places = 3
-        self.solving_capacity = {}
+        # ips - instructions per second
+        self.simulation_dt = simulation_dt
+        self.ips_available = 70
+        self.setProcessingIterationDurationInSeconds(0.1)
+        self.ips_capacity = {}
         self.nft_collection = {}
-
 
         self.nft_tasks_fifo = []
         self.basic_tasks_fifo = []
@@ -41,7 +43,7 @@ class TaskSolver(Placeable):
 
     def setProcessingIterationDurationInSeconds(self, value):
         self.processing_iteration_duration_seconds = value
-        self.decimal_places = math.ceil(abs(Decimal(value).log10()))
+        self.round_precision = -3 + math.ceil(abs(Decimal(value).log10()))
 
     def increaseReputation(self):
         self.no_of_successful_tasks += 1
@@ -77,64 +79,157 @@ class TaskSolver(Placeable):
 
 
     def solveTasksFromNFTTaskFifo(self, timestamp, logger):
-        from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
+        from NFTAutonomousVehicles.taskProcessing.Task import TaskStatus
         # print(f"Solver: {self.id} solving NFT tasks for timestamp:{timestamp}")
-        while len(self.nft_tasks_fifo) > 0:
+        end_timestamp = timestamp + timedelta(seconds=self.simulation_dt)
+        
+        while(len(self.nft_tasks_fifo) > 0 and self.nft_tasks_fifo[0][2].received_by_task_solver_at < end_timestamp):
             nft_task = self.nft_tasks_fifo[0][2]
-            if timestamp >= nft_task.received_by_task_solver_at:
-                if self.verifyNFTValidForTimestamp(nft_task.nft, timestamp):
-                    nft_task.status = TaskStatus.BEING_PROCESSED
-                    nft_task.capacity_needed_to_solve -= nft_task.nft.reserved_cores_each_iteration
 
-                    if nft_task.capacity_needed_to_solve <= 0:
-                        nft_task.status = TaskStatus.SOLVED
-                        nft_task.solved_by_task_solver_at = timestamp
-                        nft_task.returned_to_creator_at = timestamp + timedelta(seconds=nft_task.single_transfer_time)
-                        nft_task = heappop(self.nft_tasks_fifo)[2]
-                        nft_task.vehicle.receiveSolvedTask(nft_task, logger)
-                else:
-                    raise ValueError(
-                        f"NFT is not valid for given timestamp #{timestamp} | NFT: {nft_task.nft.toJson()}")
-            else:
-                break
+            if not self.verifyNFTValidForTimestamp(nft_task, timestamp):
+                ValueError(f"NFT is not valid for given timestamp #{timestamp} | NFT: {nft_task.nft.toJson()}")
+
+            self._process_single_nft_task(
+                timestamp,
+                end_timestamp,
+                nft_task,
+                logger
+            )
+
+    def _process_single_nft_task(self, step_start, step_end, task, logger):
+        from NFTAutonomousVehicles.taskProcessing.Task import TaskStatus
+        start = max(task.received_by_task_solver_at, step_start, task.nft.valid_from)
+        end = min(task.nft.valid_to, step_end)
+
+        if start > end:
+            raise Exception('Task cannot be processed in this iteration..')
+
+        solving_time = task.instruction_count / task.nft.reserved_ips
+        available_time = (end - start).total_seconds()
+        print(task.received_by_task_solver_at)
+        print(task.nft.valid_to)
+        print(solving_time, available_time)
+        if solving_time > available_time:
+            raise Exception('SIMPLIFICATION: task was not processed in one simulation step')
+
+        solved_at = start + timedelta(seconds=solving_time)
+
+        task.instruction_count = 0
+        task.status = TaskStatus.SOLVED
+        task.solved_by_task_solver_at = solved_at
+        task.returned_to_creator_at = solved_at + timedelta(seconds=task.single_transfer_time)
+        task = heappop(self.nft_tasks_fifo)[2]
+        task.vehicle.receiveSolvedTask(task, logger)
+
+
+    def _iter_timestamps(self, start, end=None) -> Generator[datetime, None, None]:
+        if end is None:
+            end = start + timedelta(seconds=self.simulation_dt)
+        timestamp = start
+        while timestamp < end:
+            yield timestamp
+            timestamp += timedelta(seconds=self.processing_iteration_duration_seconds)
 
     def solveTasksFromBasicTaskFifo(self, timestamp, logger):
         from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
 
-        while len(self.basic_tasks_fifo) > 0 and self.getAvailableCapacityForTimestamp(timestamp) > 0:
-            basic_task = self.basic_tasks_fifo[0][2]
-            if timestamp >= basic_task.received_by_task_solver_at:
+        end_timestamp = timestamp + timedelta(seconds=self.simulation_dt)
+        processing_tasks = []
 
-                capacity_used = min(basic_task.capacity_needed_to_solve, self.getAvailableCapacityForTimestamp(timestamp))
+        while len(self.basic_tasks_fifo) > 0:
+            task = self.basic_tasks_fifo[0][2]
 
-                basic_task.status = TaskStatus.BEING_PROCESSED
-                basic_task.capacity_needed_to_solve -= capacity_used
-                self.reduceSolvingCapacityForTimestamp(timestamp, capacity_used)
-
-                if basic_task.capacity_needed_to_solve <= 0:
-                    basic_task.status = TaskStatus.SOLVED
-                    basic_task.solved_by_task_solver_at = timestamp
-                    basic_task.returned_to_creator_at = timestamp + timedelta(seconds=basic_task.single_transfer_time)
-                    basic_task = heappop(self.basic_tasks_fifo)[2]
-                    basic_task.vehicle.receiveSolvedTask(basic_task, logger)
-            else:
+            if task.received_by_task_solver_at >= end_timestamp:
                 break
 
+            if task.timed_out(timestamp, logger):
+                heappop(self.basic_tasks_fifo)
+                continue
+
+            processing_tasks.append(heappop(self.basic_tasks_fifo))
+
+            req_capacity = task.nft.reserved_ips * self.processing_iteration_duration_seconds
+            start = max(task.received_by_task_solver_at, timestamp)
+
+            # substract time in first cpu iteration if needed (if task arrived
+            # between two itter timestamps so not the whole time of
+            # self.processing_iteration_duration_seconds is available for
+            # computing in first iteration)
+            diff_millis = (start - timestamp).total_seconds() * 1000
+            itter_millis = self.processing_iteration_duration_seconds * 1000
+            reduce_factor = 1 - (int(diff_millis % itter_millis) / 1000)
+
+            for timestamp_iter in self._iter_timestamps(timestamp, end_timestamp):
+                if timestamp_iter + timedelta(seconds=self.processing_iteration_duration_seconds) < start:
+                    continue
+
+                available_capacity = self.getAvailableCapacityForTimestamp(timestamp_iter)
+                capacity_used = min(req_capacity, available_capacity)
+
+                if capacity_used <= 0:
+                    continue
+
+                if reduce_factor > 0:
+                    capacity_used *= reduce_factor
+                    reduce_factor = 0
+
+                task.status = TaskStatus.BEING_PROCESSED
+                self.reduceSolvingCapacityForTimestamp(timestamp_iter, min(capacity_used, task.instruction_count))
+                task.instruction_count -= capacity_used
+
+                if basic_task.instruction_count <= 0:
+
+                    basic_task.status = TaskStatus.SOLVED
+
+                    iter_time_processing = self.processing_iteration_duration_seconds
+                    iter_time_processing *= 1 + basic_task.instruction_count / capacity_used
+
+                    solved_at = timestamp_iter + timedelta(seconds=iter_time_processing)
+
+                    basic_task.solved_by_task_solver_at = solved_at
+                    basic_task.returned_to_creator_at = solved_at + timedelta(seconds=basic_task.single_transfer_time)
+                    basic_task = processing_tasks.pop()[2]
+                    if not task.timed_out(basic_task.returned_to_creator_at, logger):
+                        basic_task.vehicle.receiveSolvedTask(basic_task, logger)
+
+        self.basic_tasks_fifo += processing_tasks
+        heapq.heapify(self.basic_tasks_fifo)
+
+        # while len(self.basic_tasks_fifo) > 0 and self.getAvailableCapacityForTimestamp(timestamp) > 0:
+        #     basic_task = self.basic_tasks_fifo[0][2]
+        #     if timestamp >= basic_task.received_by_task_solver_at:
+        #         req_capacity_iter = basic_task.nft.reserved_ips * self.processing_iteration_duration_seconds
+        #         capacity_used = min(req_capacity_iter, self.getAvailableCapacityForTimestamp(timestamp))
+
+        #         basic_task.status = TaskStatus.BEING_PROCESSED
+        #         basic_task.instruction_count -= capacity_used
+        #         self.reduceSolvingCapacityForTimestamp(timestamp, capacity_used)
+
+        #         if basic_task.instruction_count <= 0:
+        #             basic_task.status = TaskStatus.SOLVED
+        #             basic_task.solved_by_task_solver_at = timestamp
+        #             basic_task.returned_to_creator_at = timestamp + timedelta(seconds=basic_task.single_transfer_time)
+        #             basic_task = heappop(self.basic_tasks_fifo)[2]
+        #             basic_task.vehicle.receiveSolvedTask(basic_task, logger)
+        #     else:
+        #         break
+
     # NFT related methods ------
-    def getUnsignedNFT(self, start_timestamp, end_timestamp, required_capacity_per_iteration: int, single_transfer_time, transfer_rate, vehicle):
+    def getUnsignedNFT(self, start_timestamp, end_timestamp, required_capacity_per_second: int, single_transfer_time, transfer_rate, vehicle):
         from NFTAutonomousVehicles.taskProcessing.NFT import NFT
 
-        if self.cpu_count < required_capacity_per_iteration:
-            raise ValueError(f"SIMPLIFICATION! Required capacity per iteration ({required_capacity_per_iteration}) is higher than CPU count ({self.cpu_count}) of Task Solver {self.id}")
-
-        if self.checkAvailableCapacityBetweenTimestamps(start_timestamp, end_timestamp, required_capacity_per_iteration):
-            nft = NFT(vehicle, self, start_timestamp, end_timestamp, required_capacity_per_iteration, single_transfer_time, transfer_rate, False)
+        if self.ips_available < required_capacity_per_second:
+            # raise ValueError(f"SIMPLIFICATION! Required capacity per iteration ({required_capacity_per_second}) is higher than CPU count ({self.ips_available}) of Task Solver {self.id}")
+            raise ValueError(f"Required capacity per second ({required_capacity_per_second}) is higher than ips ({self.ips_available}) of Task Solver {self.id} - cant provide have enough power")
+        if self.checkAvailableCapacityBetweenTimestamps(start_timestamp, end_timestamp, required_capacity_per_second):
+            nft = NFT(vehicle, self, start_timestamp, end_timestamp, required_capacity_per_second, single_transfer_time, transfer_rate, False)
             return nft
         else:
             return None
 
     def signNFT(self, nft):
-        self.reduceSolvingCapacityBetweenTimestamps(nft.valid_from, nft.valid_to, nft.reserved_cores_each_iteration)
+        req_capacity_per_iter = nft.reserved_ips * self.processing_iteration_duration_seconds
+        self.reduceSolvingCapacityBetweenTimestamps(nft.valid_from, nft.valid_to, req_capacity_per_iter)
         self.reduce_rbs(nft.valid_from, nft.valid_to, nft.reserved_rbs)
         self.nft_collection[nft.id] = nft
         nft.signed = True
@@ -142,11 +237,11 @@ class TaskSolver(Placeable):
 
     def reduce_rbs(self, start: datetime, end: datetime, reserved_rbs: int):
         start_millis = int(round(
-                timestampToMillisecondsSinceStart(start), self.decimal_places))
+                timestampToMillisecondsSinceStart(start), self.round_precision))
         end_millis = int(round(
-                timestampToMillisecondsSinceStart(end), self.decimal_places))
+                timestampToMillisecondsSinceStart(end), self.round_precision))
 
-        step = 10**self.decimal_places
+        step = int(1000*self.processing_iteration_duration_seconds)
         for rounded_millis_since_start in range(start_millis, end_millis, step):
             if self.rb_free[rounded_millis_since_start] >= reserved_rbs:
                 self.rb_free[rounded_millis_since_start] -= reserved_rbs
@@ -155,11 +250,11 @@ class TaskSolver(Placeable):
 
     def max_available_rbs(self, start: datetime, end: datetime) -> int:
         start_millis = int(round(
-                timestampToMillisecondsSinceStart(start), self.decimal_places))
+                timestampToMillisecondsSinceStart(start), self.round_precision))
         end_millis = int(round(
-                timestampToMillisecondsSinceStart(end), self.decimal_places))
+                timestampToMillisecondsSinceStart(end), self.round_precision))
         rbs = self.resource_blocks
-        step = 10**self.decimal_places
+        step = int(1000*self.processing_iteration_duration_seconds)
         for rounded_millis_since_start in range(start_millis, end_millis, step):
             rbs = min(rbs, self.rb_free[rounded_millis_since_start])
         return rbs
@@ -178,20 +273,21 @@ class TaskSolver(Placeable):
         return self.getAvailableCapacityForMillisecondsSinceStart(timestampToMillisecondsSinceStart(timestamp))
 
     def getAvailableCapacityForMillisecondsSinceStart(self, milliseconds_since_start):
-        rounded_milliseconds_since_start = int(round(milliseconds_since_start, self.decimal_places))
-        if rounded_milliseconds_since_start not in self.solving_capacity.keys():
-            self.solving_capacity[rounded_milliseconds_since_start] = self.cpu_count
-        return self.solving_capacity[rounded_milliseconds_since_start]
+        rounded_milliseconds_since_start = int(round(milliseconds_since_start, self.round_precision))
+        if rounded_milliseconds_since_start not in self.ips_capacity.keys():
+            self.ips_capacity[rounded_milliseconds_since_start] = self.ips_available * self.processing_iteration_duration_seconds
+        return self.ips_capacity[rounded_milliseconds_since_start]
 
-    def checkAvailableCapacityBetweenTimestamps(self, start_timestamp, end_timestamp, required_capacity: int):
+    def checkAvailableCapacityBetweenTimestamps(self, start_timestamp, end_timestamp, required_capacity_per_second: int):
+        required_capacity_per_iter = required_capacity_per_second * self.processing_iteration_duration_seconds
         start_rounded_milliseconds_since_start = int(
-            round(timestampToMillisecondsSinceStart(start_timestamp), self.decimal_places))
+            round(timestampToMillisecondsSinceStart(start_timestamp), self.round_precision))
         end_rounded_milliseconds_since_start = int(
-            round(timestampToMillisecondsSinceStart(end_timestamp), self.decimal_places))
-
+            round(timestampToMillisecondsSinceStart(end_timestamp), self.round_precision))
+        step = int(1000*self.processing_iteration_duration_seconds)
         for rounded_millis_since_start in range(start_rounded_milliseconds_since_start,
-                                                end_rounded_milliseconds_since_start, 10 ** self.decimal_places):
-            if self.getAvailableCapacityForMillisecondsSinceStart(rounded_millis_since_start) < required_capacity:
+                                                end_rounded_milliseconds_since_start, step):
+            if self.getAvailableCapacityForMillisecondsSinceStart(rounded_millis_since_start) < required_capacity_per_iter:
                 return False
         return True
 
@@ -199,30 +295,31 @@ class TaskSolver(Placeable):
         available_capacity = self.getAvailableCapacityForMillisecondsSinceStart(milliseconds_since_start)
         if available_capacity < required_capacity:
             return False
-        rounded_milliseconds_since_start = int(round(milliseconds_since_start, self.decimal_places))
-        self.solving_capacity[rounded_milliseconds_since_start] -= required_capacity
+        rounded_milliseconds_since_start = int(round(milliseconds_since_start, self.round_precision))
+        self.ips_capacity[rounded_milliseconds_since_start] -= required_capacity
         return True
 
     def reduceSolvingCapacityForTimestamp(self, timestamp, required_capacity: int):
         milliseconds_since_start = timestampToMillisecondsSinceStart(timestamp)
-        rounded_milliseconds_since_start = int(round(milliseconds_since_start, self.decimal_places))
+        rounded_milliseconds_since_start = int(round(milliseconds_since_start, self.round_precision))
         available_capacity = self.getAvailableCapacityForMillisecondsSinceStart(rounded_milliseconds_since_start)
         if available_capacity < required_capacity:
             return False
-        self.solving_capacity[rounded_milliseconds_since_start] -= required_capacity
+        self.ips_capacity[rounded_milliseconds_since_start] -= required_capacity
         return True
 
-    def reduceSolvingCapacityBetweenTimestamps(self, start_timestamp, end_timestamp, required_capacity: int):
-        start_rounded_milliseconds_since_start = int(round(timestampToMillisecondsSinceStart(start_timestamp), self.decimal_places))
-        end_rounded_milliseconds_since_start = int(round(timestampToMillisecondsSinceStart(end_timestamp), self.decimal_places))
-        for rounded_millis_since_start in range(start_rounded_milliseconds_since_start, end_rounded_milliseconds_since_start, 10**self.decimal_places):
-            if self.getAvailableCapacityForMillisecondsSinceStart(rounded_millis_since_start) >= required_capacity:
-                self.reduceSolvingCapacityForMillisecondsSinceStart(rounded_millis_since_start, required_capacity)
+    def reduceSolvingCapacityBetweenTimestamps(self, start_timestamp, end_timestamp, required_capacity_per_iter: int):
+        start_rounded_milliseconds_since_start = int(round(timestampToMillisecondsSinceStart(start_timestamp), self.round_precision))
+        end_rounded_milliseconds_since_start = int(round(timestampToMillisecondsSinceStart(end_timestamp), self.round_precision))
+        step = int(1000*self.processing_iteration_duration_seconds)
+        for rounded_millis_since_start in range(start_rounded_milliseconds_since_start, end_rounded_milliseconds_since_start, step):
+            if self.getAvailableCapacityForMillisecondsSinceStart(rounded_millis_since_start) >= required_capacity_per_iter:
+                self.reduceSolvingCapacityForMillisecondsSinceStart(rounded_millis_since_start, required_capacity_per_iter)
             else:
                 return False
         return True
 
     def printSolvingCapacity(self):
         print("Printing solving capacity--------")
-        for millis, capacity in self.solving_capacity.items():
+        for millis, capacity in self.ips_capacity.items():
             print(f"{millis} : {capacity}")
