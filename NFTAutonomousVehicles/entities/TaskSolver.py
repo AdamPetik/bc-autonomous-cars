@@ -163,10 +163,6 @@ class TaskSolver(Placeable):
                 if timestamp_iter + timedelta(seconds=self.processing_iteration_duration_seconds) < start:
                     continue
 
-                if task.timed_out(timestamp_iter, logger):
-                    processing_tasks.pop()
-                    break
-
                 available_capacity = self.getAvailableCapacityForTimestamp(timestamp_iter)
                 capacity_used = min(req_capacity, available_capacity)
 

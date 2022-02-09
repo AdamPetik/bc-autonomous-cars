@@ -1,9 +1,27 @@
-from typing import Deque, Dict, List
+from typing import Any, Callable, Deque, Dict, List
 import numpy as np
 import numpy.typing as npt
 from collections import defaultdict, deque
 import seaborn as sns
 import matplotlib.pylab as plt
+from src.common.Location import Location
+
+class _GridUtil:
+    def __init__(self, x_size: int, y_size: int, latmin, latmax, lonmin, lonmax) -> None:
+        self.x_size = x_size
+        self.y_size = y_size
+
+        self.latmin = latmin
+        self.latmax = latmax
+        self.lonmin = lonmin
+        self.lonmax = lonmax
+        self.latStep = abs(latmax - latmin) / x_size
+        self.lonStep = abs(lonmax - lonmin) / y_size
+
+    def coordinates(self, location=Location):
+        x = int((location.getLatitude() - self.latmin) // self.latStep)
+        y = int((location.getLongitude() - self.lonmin) // self.lonStep)
+        return x, y
 
 
 class SINRMap:
@@ -14,7 +32,8 @@ class SINRMap:
         y_size: int,
         update_param: float = 0.5,
         cache_capacity: int = 100,
-        lovest_sinr_val: float = -100
+        lovest_sinr_val: float = -100,
+        latmin=None, latmax=None, lonmin=None, lonmax=None
     ) -> None:
         self.x_size = x_size
         self.y_size = y_size
@@ -32,7 +51,10 @@ class SINRMap:
                 fill_value=self.init_sinr_val,
             )
         )
-
+        self.grid = None
+        if latmin is not None:
+            self.grid = _GridUtil(x_size-1, y_size-1,
+                                  latmin, latmax, lonmin, lonmax)
         # {
         #   'ue_id': {
         #       'bs_id': [<cached values>]
@@ -44,6 +66,30 @@ class SINRMap:
                 lambda: deque(maxlen=self.cache_capacity)
             )
         )
+
+    def _loc_wrap(self, l: Location, fun, *args, **kwargs) -> Any:
+        if self.grid is None:
+            return fun(l.getGridXcoor(), l.getGridXcoor(), *args, **kwargs)
+        else:
+            return fun(*self.grid.coordinates(l), *args, **kwargs)
+
+    def update_loc(self, l: Location, value: float, ue_id=None) -> None:
+        return self._loc_wrap(l, self.update, value, ue_id)
+
+    def get_loc(self, l: Location) -> None:
+        return self._loc_wrap(l, self.get)
+
+    def get_from_bs_map_loc(self, l: Location, bs_id: str) -> float:
+        return self._loc_wrap(l, self.get_from_bs_map, bs_id)
+
+    def update_bs_map_loc(
+        self,
+        l: Location,
+        value: float,
+        bs_id: str,
+        ue_id: str = None,
+    ) -> None:
+        return self._loc_wrap(l, self.update_bs_map, value, bs_id, ue_id)
 
     def update(self, x: int, y: int, value: float, ue_id=None) -> None:
         """Updates global map"""

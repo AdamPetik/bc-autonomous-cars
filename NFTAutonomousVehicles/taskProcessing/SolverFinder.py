@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from typing import List, Tuple, Union
 import heapq
+from NFTAutonomousVehicles.utils.sinr_map import SINRMap
 
 from src.common.CommonFunctions import CommonFunctions
 from src.common.Location import Location
@@ -14,9 +15,10 @@ from NFTAutonomousVehicles.utils.radio_data_rate import RadioDataRate
 
 
 class SolverFinder:
-    def __init__(self):
+    def __init__(self, sinr_map: SINRMap):
         self.com = CommonFunctions()
         self.com_solving = CommonFunctionsForTaskSolving()
+        self.sinr_map = sinr_map
 
     def searchForTaskSolver(self,  mapGrid, task, solver_collection_names):
         effective_radius = self.com_solving.getEffectiveDistanceOfConnection(
@@ -74,7 +76,8 @@ class SolverFinder:
             min_data_rate_mbps,
             potential_solvers,
             ips_required,
-            (start_timestamp, end_timestamp)
+            (start_timestamp, end_timestamp),
+            self.sinr_map
         )
 
         if result is None:
@@ -137,6 +140,7 @@ def search_best_solver(
     base_stations: List[TaskSolver],
     required_ips: float,
     timeinterval: Tuple[datetime, datetime],
+    sinr_map: SINRMap
 ) -> Union[None, Tuple[int, TaskSolver, float, float]]:
     """Search best task solver.
 
@@ -158,8 +162,10 @@ def search_best_solver(
                 *timeinterval, required_ips):
             continue
 
-        # rbs = get_available_rb(location, bs)
-        sinrval = sinr.calculate_sinr(location, bs, base_stations)
+        sinrval = sinr_map.get_from_bs_map_loc(location, bs.id)
+        if sinrval == sinr_map.init_sinr_val:
+            sinrval = sinr.calculate_sinr(location, bs, base_stations)
+            sinr_map.update_bs_map_loc(location, sinrval, bs.id)
 
         max_rbs = bs.max_available_rbs(*timeinterval)
 

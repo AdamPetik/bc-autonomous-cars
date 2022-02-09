@@ -1,5 +1,6 @@
 from NFTAutonomousVehicles.iisMotionCustomInterface.IISMotion import IISMotion
 from NFTAutonomousVehicles.resultCollectors.MainCollector import MainCollector
+from NFTAutonomousVehicles.utils.sinr_map import SINRMap
 from src.city.ZoneType import ZoneType
 from src.common.Location import Location
 from src.common.CommonFunctions import CommonFunctions
@@ -40,6 +41,18 @@ iismotion = IISMotion(radius=radius,
                       removeDeadends=True
                       )  # initialize IISMotion
 
+map_grid = iismotion.mapGrid
+
+sinr_map = SINRMap(
+    x_size=130,
+    y_size=130,
+    latmin=map_grid.latmin,
+    latmax=map_grid.latmax,
+    lonmin=map_grid.lonmin,
+    lonmax=map_grid.lonmax,
+)
+
+
 logger = MainCollector()
 
 nftVehicles = iismotion\
@@ -52,14 +65,17 @@ basicVehicles = iismotion\
     .addAutonomousVehicles(1, False, 1) \
     .setGuiEnabled(guiEnabled)
 
+nftVehicles.sinr_map = sinr_map
+basicVehicles.sinr_map = sinr_map
 
 taskSolvers = iismotion\
     .createActorCollection("taskSolvers", False, MovementStrategyType.DRONE_MOVEMENT_CUDA) \
     .setGuiEnabled(guiEnabled)
 
-# iismotion.getActorCollection("taskSolvers").generateTaskSolvers(20, 30)
+iismotion.getActorCollection("taskSolvers").generateTaskSolvers(50, 50)
+print(" - solvers generated")
 # iismotion.getActorCollection("taskSolvers").storeTaskSolvers("middleMap.json")
-taskSolvers.loadTaskSolversFromFile("middleMap.json")
+# taskSolvers.loadTaskSolversFromFile("middleMap.json")
 # iismotion.getActorCollection("taskSolvers").loadTaskSolversFromFile("smallV1_2_50.json")
 iismotion.getActorCollection("taskSolvers").setSolversProcessingIterationDurationInSeconds(processing_iteration_duration_seconds)
 
@@ -83,9 +99,6 @@ async def simulate():
         nftVehicles.generateAndSendNFTTasks(logger)
         basicVehicles.generateAndSendNonNFTTasks(['taskSolvers'], logger)
         taskSolvers.solveTasks(logger)
-
-
-
 
         stepEnd = time.time()
         print("step took ", stepEnd - stepStart)

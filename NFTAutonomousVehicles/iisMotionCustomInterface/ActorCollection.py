@@ -70,6 +70,7 @@ class ActorCollection:
         self.attractors = []
         self.guiEnabled = False
         self.com = CommonFunctions()
+        self.sinr_map = None
 
 
     def setGuiEnabled(self, value: bool) -> 'ActorCollection':
@@ -221,7 +222,7 @@ class ActorCollection:
         from NFTAutonomousVehicles.taskProcessing.Task import Task
         origin_location = path_of_locations[0]
         destination_location = path_of_locations[-1]
-        solver_finder = SolverFinder()
+        solver_finder = SolverFinder(self.sinr_map)
 
         # print(f"----getNFTsForRoute----")
         timestamp = copy.deepcopy(getDateTime())
@@ -334,7 +335,7 @@ class ActorCollection:
 
     def generateAndSendNonNFTTasks(self, solver_collection_names, logger):
         from NFTAutonomousVehicles.taskProcessing.SolverFinder import SolverFinder
-        solver_finder = SolverFinder()
+        solver_finder = SolverFinder(self.sinr_map)
 
         timestamp = getDateTime()
         for actorId in self.locationsTable.getAllIds():
