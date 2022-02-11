@@ -5,6 +5,7 @@ from heapq import heappush, heappop
 from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 from NFTAutonomousVehicles.iisMotionCustomInterface.TaskSolverLoader import TaskSolverLoader
 from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
+from NFTAutonomousVehicles.utils.statistics import IncrementalEvent, Statistics
 from src.city.ZoneType import ZoneType
 from src.common.CommonFunctions import CommonFunctions
 from src.common.FemtocellLoader import FemtocellLoader
@@ -71,6 +72,7 @@ class ActorCollection:
         self.guiEnabled = False
         self.com = CommonFunctions()
         self.sinr_map = None
+        self.epsilon = None
 
 
     def setGuiEnabled(self, value: bool) -> 'ActorCollection':
@@ -222,7 +224,7 @@ class ActorCollection:
         from NFTAutonomousVehicles.taskProcessing.Task import Task
         origin_location = path_of_locations[0]
         destination_location = path_of_locations[-1]
-        solver_finder = SolverFinder(self.sinr_map)
+        solver_finder = SolverFinder(self.sinr_map, self.epsilon)
 
         # print(f"----getNFTsForRoute----")
         timestamp = copy.deepcopy(getDateTime())
@@ -311,6 +313,8 @@ class ActorCollection:
         for actorId in self.locationsTable.getAllIds():
             vehicle: AutonomousVehicle = self.actorSet[int(actorId)]
 
+            Statistics().incremental_event(IncrementalEvent.GENERATED_TASK)
+
             if (timestamp in vehicle.active_proposed_route.timestamp_nft_dict):
                 nft = vehicle.active_proposed_route.timestamp_nft_dict[timestamp]
 
@@ -335,7 +339,7 @@ class ActorCollection:
 
     def generateAndSendNonNFTTasks(self, solver_collection_names, logger):
         from NFTAutonomousVehicles.taskProcessing.SolverFinder import SolverFinder
-        solver_finder = SolverFinder(self.sinr_map)
+        solver_finder = SolverFinder(self.sinr_map, self.epsilon)
 
         timestamp = getDateTime()
         for actorId in self.locationsTable.getAllIds():

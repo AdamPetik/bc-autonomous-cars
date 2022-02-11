@@ -18,7 +18,6 @@ def calculate_sinr(
     cpl = city_path_loss(distance/1000)
     # print('fspl', fspl)
     # print('cpl', cpl)
-
     S = (w_to_dbm(gNB.tx_power) - cpl)
     # I = w_to_dbm(1e-19)
     I = 0

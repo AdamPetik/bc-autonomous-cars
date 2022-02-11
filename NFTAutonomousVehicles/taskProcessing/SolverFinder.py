@@ -15,10 +15,11 @@ from NFTAutonomousVehicles.utils.radio_data_rate import RadioDataRate
 
 
 class SolverFinder:
-    def __init__(self, sinr_map: SINRMap):
+    def __init__(self, sinr_map: SINRMap, epsilon: float):
         self.com = CommonFunctions()
         self.com_solving = CommonFunctionsForTaskSolving()
         self.sinr_map = sinr_map
+        self.epsilon = epsilon
 
     def searchForTaskSolver(self,  mapGrid, task, solver_collection_names):
         effective_radius = self.com_solving.getEffectiveDistanceOfConnection(
@@ -53,8 +54,7 @@ class SolverFinder:
         solver_collection_names,
     ) -> Union[None,NFT]:
         effective_radius = 900
-        epsilon_mbps = 1
-        epsilon_ips = 1
+        epsilon_ratio = 1 - self.epsilon
 
         vehicle_loc = task.vehicle.getLocation()
         potential_solvers = map_grid.getActorsInRadius(
@@ -63,14 +63,17 @@ class SolverFinder:
             vehicle_loc,
         )
 
-        max_single_transfer_time = (task.limit_time - task.solving_time) / 2
-        min_data_rate_mbps = task.size_in_megabytes / max_single_transfer_time
-        min_data_rate_mbps += epsilon_mbps
-
         start_timestamp = task.created_at
         end_timestamp = start_timestamp + timedelta(seconds=task.limit_time)
-        
-        ips_required = task.instruction_count / task.solving_time + epsilon_ips
+
+        relaxed_limit_time = task.limit_time * epsilon_ratio
+        relaxed_solving_time = task.solving_time * epsilon_ratio
+
+        max_single_transfer_time = (relaxed_limit_time - relaxed_solving_time) / 2
+        min_data_rate_mbps = task.size_in_megabytes / max_single_transfer_time
+
+        ips_required = task.instruction_count / relaxed_solving_time
+
         result = search_best_solver(
             vehicle_loc,
             min_data_rate_mbps,
@@ -83,7 +86,7 @@ class SolverFinder:
         if result is None:
             return None
 
-        rbs, solver, _, datarate = result
+        rbs, _, solver, datarate = result
         transfer_time = task.size_in_megabytes / datarate
 
         nft_unsigned: NFT = solver.getUnsignedNFT(
@@ -167,6 +170,9 @@ def search_best_solver(
             sinrval = sinr.calculate_sinr(location, bs, base_stations)
             sinr_map.update_bs_map_loc(location, sinrval, bs.id)
 
+        if sinrval < -6.9:
+            continue
+
         max_rbs = bs.max_available_rbs(*timeinterval)
 
         min_rbs = RadioDataRate.get_rb_count(sinrval, min_data_rate_mbps)
@@ -176,12 +182,12 @@ def search_best_solver(
 
         data_rate = RadioDataRate.calculate(sinrval, min_rbs)
 
-        heapq.heappush(l, (min_rbs, bs, sinrval, data_rate))
+        l.append((min_rbs, sinrval, bs, data_rate))
 
     if len(l) == 0:
         return None
 
-    return heapq.heappop(l)
+    return sorted(l, key=lambda x: x[0])[0]
 
 
 # NOTE: draft of pseudocode....

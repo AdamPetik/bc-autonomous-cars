@@ -139,6 +139,7 @@ class SINRMap:
                 (1 - self.update_param) * curr_value
                 + self.update_param * value
             )
+        self._map[x, y] = max(self._map[x,y], value)
 
         if ue_id is not None:
             """if ue_id is provided, value is cached"""
@@ -161,9 +162,10 @@ class SINRMap:
 
         my_fig, (my_ax, my_cbar_ax) = plt.subplots(
                 ncols=2, figsize=(8, 6), gridspec_kw={'width_ratios': [10, 1]})
-
+        heatmap[heatmap < 0] = 0
+        heatmap[heatmap > 25] = 25
         ax = sns.heatmap(np.flip(heatmap, 0), linewidths=0,
-                ax=my_ax, cbar_ax=my_cbar_ax)
+                ax=my_ax, cbar_ax=my_cbar_ax, cmap='gray')
         plt.savefig(filename)
 
     def __repr__(self) -> str:
