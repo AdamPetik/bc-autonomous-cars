@@ -8,7 +8,8 @@
         "steps": 200,
         "gui_timeout": 0.5,
         "gui_enabled": false,
-        "processing_dt": 0.1
+        "processing_dt": 0.1,
+        "plot_map_and_sinr": false
     },
 
     "vehicles":{
@@ -24,14 +25,14 @@
     },
 
     "base_stations":{
-        "count": 15,
-        "min_radius": 160,
-        "location_file": null,
+        "count": 10,
+        "min_radius": 200,
+        "location_file": "middleMap3.json",
         "ips": 3.6e9,
-        "bandwidth": 10e6,
-        "resource_blocks": 50,
+        "bandwidth": 100e6,
+        "resource_blocks": 8000,
         "tx_frequency": 2e9,
-        "tx_power": 0.01,
+        "tx_power": 0.1,
         "coverage_radius": 500
     },
 

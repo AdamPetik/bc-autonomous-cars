@@ -196,16 +196,19 @@ def main_run(config_dict: Dict[str, Any]):
 
     logger.closeCollector()
 
-    dirpath_sinr = os.path.join(config.result_dir, config.result_name + '_sinrmap.png')
-    dirpath_map = os.path.join(config.result_dir, config.result_name + '_map.png')
+    # plot map and sinr map
+    pm = config.simulation.plot_map_and_sinr
+    if pm is not None and pm:
+        dirpath_sinr = os.path.join(config.result_dir, config.result_name + '_sinrmap.png')
+        dirpath_map = os.path.join(config.result_dir, config.result_name + '_map.png')
 
-    sinr_map.save_global_heat_map(dirpath_sinr, 2)
+        sinr_map.save_global_heat_map(dirpath_sinr, 2)
 
-    plott_map_and_nodes(
-        iismotion.map.driveGraph,
-        list(taskSolvers.actorSet.values()),
-        dirpath_map,
-    )
+        plott_map_and_nodes(
+            iismotion.map.driveGraph,
+            list(taskSolvers.actorSet.values()),
+            dirpath_map,
+        )
 
     Statistics().save_json(
         config.result_dir,
