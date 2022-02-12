@@ -106,9 +106,7 @@ class TaskSolver(Placeable):
 
         solving_time = task.instruction_count / task.nft.reserved_ips
         available_time = (end - start).total_seconds()
-        print(task.received_by_task_solver_at)
-        print(task.nft.valid_to)
-        print(solving_time, available_time)
+
         if solving_time > available_time:
             raise Exception('SIMPLIFICATION: task was not processed in one simulation step')
 

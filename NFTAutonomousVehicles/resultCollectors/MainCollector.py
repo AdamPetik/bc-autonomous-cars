@@ -2,17 +2,29 @@ import os
 import sqlite3
 import datetime
 
+from NFTAutonomousVehicles.taskProcessing.Task import TaskStatus
+from NFTAutonomousVehicles.utils.statistics import IncrementalEvent, Statistics
+
 
 
 class MainCollector:
 
-    def __init__(self):
-        cache_dir = os.path.join('results', 'databaseFiles')
+    def __init__(self, dir: str = None, dbfilename: str = None):
+        if dir is None:
+            cache_dir = os.path.join('results', 'databaseFiles')
+        else:
+            cache_dir = os.path.join(dir, 'databaseFiles')
+
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir)
 
-        filename = cache_dir + "/" + str(datetime.datetime.now()).replace(" ","_").replace(":","") +".db"
-        self.conn = sqlite3.connect(filename)
+        if dbfilename is None:
+            filename = str(datetime.datetime.now()).replace(" ","_").replace(":","") +".db"
+            filepath = os.path.join(cache_dir, filename)
+        else:
+            filepath = os.path.join(cache_dir, dbfilename)
+
+        self.conn = sqlite3.connect(filepath)
         print("SQLITE connection ready" + sqlite3.version)
         self.createTables()
 
@@ -93,6 +105,8 @@ class MainCollector:
         self.conn.commit()
 
     def logTask(self, task):
+        if task.status != TaskStatus.SOLVED:
+            Statistics().incremental_event(IncrementalEvent.DISCARDED_TASK)
         if task.solver is None:
             solver_id = "null"
         else:
