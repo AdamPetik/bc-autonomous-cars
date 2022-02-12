@@ -173,3 +173,10 @@ class CommonFunctions:
                 print(f"{locationIndex}.    |{location.toString()}, route#{routeIndex} step#{locationIndex}")
                 locationIndex = locationIndex + 1
             routeIndex = routeIndex + 1
+
+    def printRoute(self, route):
+        print(f"Printing route of len: {len(route)}")
+        locationIndex = 1
+        for location in route:
+            print(f"#{locationIndex}|{location.toString()}")
+            locationIndex = locationIndex + 1

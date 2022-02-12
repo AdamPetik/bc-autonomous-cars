@@ -32,7 +32,7 @@ class ProposedRoute:
                  missing_NFTs=None, route_length_in_meters=None, route_step_count=None,
                  segments_without_solvers=None):
         self.index = index
-        self.path_of_locations = path_of_locations,
+        self.path_of_locations = path_of_locations
         self.timestamp_location_dict = timestamp_location_dict
         self.timestamp_solver_dict = timestamp_solver_dict
         self.timestamp_nft_dict = timestamp_nft_dict
@@ -222,6 +222,9 @@ class ActorCollection:
     def getProposedRoute(self, path_of_locations, actor, secondsPerTick, solver_collection_names):
         from NFTAutonomousVehicles.taskProcessing.SolverFinder import SolverFinder
         from NFTAutonomousVehicles.taskProcessing.Task import Task
+        original_path_of_locations = copy.deepcopy(path_of_locations)
+        original_path_of_locations.insert(0, self.map.getNearestNodeLocation(actor.getLocation()))
+
         origin_location = path_of_locations[0]
         destination_location = path_of_locations[-1]
         solver_finder = SolverFinder(self.sinr_map, self.epsilon)
@@ -230,7 +233,7 @@ class ActorCollection:
         timestamp = copy.deepcopy(getDateTime())
         timestamp_location_dict = dict()
         timestamp_nft_dict = dict()
-        route_length_in_meters = self.map.getRouteLength(path_of_locations, 0)
+        route_length_in_meters = self.map.getRouteLength(original_path_of_locations, 0)
         route_step_count = 0
         missing_NFTs = 0
         segments_without_solvers = set()
@@ -284,7 +287,8 @@ class ActorCollection:
         # if(missing_NFTs>0 and len(segments_without_solvers)==0):
         #     raise ValueError(f"segments_without_provider is not counted properly| missingNFTs: {missing_NFTs} but segments_without_provider: {len(segments_without_solvers)}")
         actor.setLocation(actor_location)
-        proposed_route = ProposedRoute(path_of_locations=path_of_locations,
+
+        proposed_route = ProposedRoute(path_of_locations=original_path_of_locations,
                                        timestamp_location_dict=timestamp_location_dict,
                                       timestamp_nft_dict=timestamp_nft_dict,
                                       missing_NFTs=missing_NFTs,

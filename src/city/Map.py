@@ -224,6 +224,18 @@ class Map:
                                                            location.getLatitude())
         return location.osmnxNode
 
+
+    def getNearestNodeLocation(self, location: Location) -> Location:
+        """
+        returns osmnx id of nearest OpenStreetMap node to the given location
+        :param location: location to which we want to find the node
+        :return: id of osmnx node
+        """
+        if (location.osmnxNode is None):
+            location.osmnxNode = ox.distance.nearest_nodes(self.driveGraph, location.getLongitude(),
+                                                           location.getLatitude())
+        return location
+
     def getRouteBetweenPoints(self, locationA: Location, locationB: Location) -> [Location]:
         """
         returns list with a single location object
@@ -282,6 +294,21 @@ class Map:
     # Plotting
     def plotRoute(self, route, name):
         fig, ax = ox.plot_graph_route(self.driveGraph, route)
+        # fig.savefig(f"{name}.pdf")
+
+    def plotLocationRoutes(self, location_routes, name):
+        routes = list()
+        for location_route in location_routes:
+            print(f"parsing route of len: {len(location_route)}")
+            route = list()
+            for location in location_route:
+                route.append(location.osmnxNode)
+            print(f"osmnx nodes: {route}")
+            routes.append(route)
+        rc = ['r', 'b']
+        fig, ax = ox.plot_graph_routes(self.driveGraph, routes, route_colors=rc, route_linewidth=6, node_size=5)
+        fig.savefig('plot.png')
+        # fig, ax = ox.plot_graph_route(self.driveGraph, route)
         # fig.savefig(f"{name}.pdf")
 
     def plotRouteFromGraph(self, graph, route):
