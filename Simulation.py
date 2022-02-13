@@ -7,11 +7,13 @@ from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 from NFTAutonomousVehicles.entities.TaskSolver import TaskSolver
 from NFTAutonomousVehicles.iisMotionCustomInterface.ActorCollection import ActorCollection
 from NFTAutonomousVehicles.iisMotionCustomInterface.IISMotion import IISMotion
+from NFTAutonomousVehicles.movement_strategy.sinr_aware_movement_strategy import SINRAwareMovementStrategy
 from NFTAutonomousVehicles.resultCollectors.MainCollector import MainCollector
 from NFTAutonomousVehicles.taskProcessing.Task import Task
 from NFTAutonomousVehicles.utils.sinr_map import SINRMap
 from NFTAutonomousVehicles.utils.run_utils import parallel_simulation_run
 from NFTAutonomousVehicles.utils import dict_utils
+from NFTAutonomousVehicles.utils.sinr_route_alg import SINRRouteALG
 from NFTAutonomousVehicles.utils.statistics import Statistics
 from src.city.ZoneType import ZoneType
 from src.common.Location import Location
@@ -38,6 +40,7 @@ def plott_map_and_nodes(G_map, nodes: list, filename:str):
     fig, ax = ox.plot_graph(G, save=True, filepath=filename)
     plt.close(fig)
 
+
 def _config_task_solvers(collection: ActorCollection, config):
     bss: List[TaskSolver] = list(collection.actorSet.values())
     for bs in bss:
@@ -47,6 +50,7 @@ def _config_task_solvers(collection: ActorCollection, config):
         bs.association_coverage_radius = config.coverage_radius
         bs.bandwidth = config.bandwidth
         bs.resource_blocks = config.resource_blocks
+
 
 def _config_vehicles(collection: ActorCollection, config):
     task_config = config.task
@@ -60,6 +64,7 @@ def _config_vehicles(collection: ActorCollection, config):
             solving_time=task_config.solving_time,
         )
         v.setSpeed(config.speed_ms)
+
 
 def main_run(config_dict: Dict[str, Any]):
     config = dict_utils.to_object(config_dict)
@@ -106,28 +111,7 @@ def main_run(config_dict: Dict[str, Any]):
         lonmax=map_grid.lonmax,
     )
 
-    vehicles_type = config.vehicles.type
-    vehicles_count = config.vehicles.count
-
-    vehicle_movement_strategy = MovementStrategyType.PRELOADED_LOCATIONS_STRATEGY
-
-    if vehicles_type == 1: # shortest path
-        vehicle_movement_strategy = MovementStrategyType.RANDOM_WAYPOINT_CITY
-
-    vehicles_collection = iismotion\
-        .createActorCollection("vehicles", True, vehicle_movement_strategy) \
-        .addAutonomousVehicles(vehicles_count, False, vehicles_type) \
-        .setGuiEnabled(guiEnabled)
-    _config_vehicles(vehicles_collection, config.vehicles)
-    # basicVehicles = iismotion\
-    #     .createActorCollection("basicVehicles", True, MovementStrategyType.RANDOM_WAYPOINT_CITY) \
-    #     .addAutonomousVehicles(1, False, 1) \
-    #     .setGuiEnabled(guiEnabled)
-
-    vehicles_collection.sinr_map = sinr_map
-    vehicles_collection.epsilon = config.algorithm.epsilon
-    # basicVehicles.sinr_map = sinr_map
-
+    # TASK SOLVERS CONFIG
     taskSolvers = iismotion\
         .createActorCollection("taskSolvers", False, MovementStrategyType.DRONE_MOVEMENT_CUDA) \
         .setGuiEnabled(guiEnabled)
@@ -145,6 +129,38 @@ def main_run(config_dict: Dict[str, Any]):
     _config_task_solvers(taskSolvers, config.base_stations)
     iismotion.getActorCollection("taskSolvers").setSolversProcessingIterationDurationInSeconds(processing_iteration_duration_seconds)
 
+    # VEHICLES CONFIG
+    vehicles_type = config.vehicles.type
+    vehicles_count = config.vehicles.count
+
+    if vehicles_type == 0: # NFT
+        vehicle_movement_strategy = MovementStrategyType.PRELOADED_LOCATIONS_STRATEGY
+    elif vehicles_type == 1: # shortest path
+        vehicle_movement_strategy = MovementStrategyType.RANDOM_WAYPOINT_CITY
+    elif vehicles_type == 2: # SINR Aware route
+        route_alg = SINRRouteALG(
+            iismotion.map,
+            sinr_limit=5,
+            dist=5,
+            t_coef=1.3, #TODO how to set this?
+            sinr_map=sinr_map,
+            speed_ms=config.vehicles.speed_ms,
+            base_stations=list(taskSolvers.actorSet.values())
+        )
+        def vms(*args):
+            return SINRAwareMovementStrategy(*args, route_alg, secondsPerTick)
+        vehicle_movement_strategy = vms
+    else:
+        raise Exception(f"unsupported vehicle type {vehicles_type}")
+
+    vehicles_collection = iismotion\
+        .createActorCollection("vehicles", True, vehicle_movement_strategy) \
+        .addAutonomousVehicles(vehicles_count, False, vehicles_type) \
+        .setGuiEnabled(guiEnabled)
+    _config_vehicles(vehicles_collection, config.vehicles)
+
+    vehicles_collection.sinr_map = sinr_map
+    vehicles_collection.epsilon = config.algorithm.epsilon
 
     # method that moves agents for desired number of iterations
     # async because of "GUI"
@@ -158,7 +174,7 @@ def main_run(config_dict: Dict[str, Any]):
 
             if vehicles_type == 0:
                 vehicles_collection.planRoutesForNFTVehicles(['taskSolvers'], logger)
-            elif vehicles_type == 1:
+            elif vehicles_type > 0:
                 vehicles_collection.planRoutesForNonNFTVehicles(newDay)
             else:
                 raise Exception(f"Not implemented type of vehicle {vehicles_type}")
@@ -167,7 +183,7 @@ def main_run(config_dict: Dict[str, Any]):
 
             if vehicles_type == 0:
                 vehicles_collection.generateAndSendNFTTasks(logger)
-            elif vehicles_type == 1:
+            elif vehicles_type > 0:
                 vehicles_collection.generateAndSendNonNFTTasks(['taskSolvers'], logger)
             else:
                 raise Exception(f"Not implemented type of vehicle {vehicles_type}")

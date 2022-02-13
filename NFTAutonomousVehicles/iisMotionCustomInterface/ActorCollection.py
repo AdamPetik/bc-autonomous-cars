@@ -66,8 +66,13 @@ class ActorCollection:
         self.actorSet = {}
         self.mapGrid = mapGrid
         self.secondsPerTick = secondsPerTick
-        self.movementStrategy = MovementStrategyFactory().getStrategy(movementStrategy, self.locationsTable,
-                                                                      self.actorSet, self.map, self.mapGrid)
+
+        if isinstance(movementStrategy, MovementStrategyType):
+            self.movementStrategy = MovementStrategyFactory().getStrategy(movementStrategy, self.locationsTable,
+                                                                        self.actorSet, self.map, self.mapGrid)
+        else:
+            self.movementStrategy = movementStrategy(self.locationsTable, self.actorSet, self.map, self.mapGrid, None)
+
         self.attractors = []
         self.guiEnabled = False
         self.com = CommonFunctions()
