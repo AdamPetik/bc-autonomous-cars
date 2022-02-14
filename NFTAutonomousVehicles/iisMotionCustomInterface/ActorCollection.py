@@ -354,6 +354,8 @@ class ActorCollection:
         for actorId in self.locationsTable.getAllIds():
             vehicle: AutonomousVehicle = self.actorSet[int(actorId)]
 
+            Statistics().incremental_event(IncrementalEvent.GENERATED_TASK)
+
             task = Task(vehicle=vehicle, size_in_megabytes=vehicle.sample_task.size_in_megabytes,
                         created_at=timestamp, limit_time=vehicle.sample_task.limit_time,
                         deadline_at=timestamp + timedelta(seconds=vehicle.sample_task.limit_time),

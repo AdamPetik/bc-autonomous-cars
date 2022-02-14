@@ -53,7 +53,7 @@ class Task:
         return self.deadline_at - self.created_at
 
     def timed_out(self, timestamp, logger=None) -> bool:
-        if self.deadline_at > timestamp:
+        if self.deadline_at < timestamp:
             self.status = TaskStatus.TASK_TIMED_OUT
             if logger is not None:
                 logger.logTask(self)

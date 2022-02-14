@@ -22,7 +22,7 @@ class MainCollector:
             filename = str(datetime.datetime.now()).replace(" ","_").replace(":","") +".db"
             filepath = os.path.join(cache_dir, filename)
         else:
-            filepath = os.path.join(cache_dir, dbfilename)
+            filepath = os.path.join(cache_dir, dbfilename + '.db')
 
         self.conn = sqlite3.connect(filepath)
         print("SQLITE connection ready" + sqlite3.version)
