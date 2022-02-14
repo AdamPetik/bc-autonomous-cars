@@ -1,6 +1,7 @@
 import heapq
 from datetime import datetime, timedelta
-from typing import Any, Callable, List, NamedTuple, Tuple, Union
+from tkinter import E
+from typing import Any, Callable, Dict, List, NamedTuple, Tuple, Union
 
 from .processable import Processable
 
@@ -64,23 +65,35 @@ class FIFOProcessor:
         current_time: datetime,
         deadline: datetime = None,
     ) -> Processable:
-        # TODO
         if len(self.process_fifo) == 0:
             return None
 
-        processable = heapq.heappop(self.process_fifo)[-1]
-        used_amount = processable.to_process_amount
+        start_time = current_time
+        processable = self.process_fifo[0][-1]
 
-        processable.process(used_amount)
+        if deadline is not None:
+            if processable.can_start_process_at >= deadline:
+                return None
+            start_time = max(current_time, processable.can_start_process_at)
+            available_sec = (deadline - start_time).total_seconds()
+            available_amount = available_sec / self.dt * self.power # TODO verify
+        else:
+            available_amount = processable.to_process_amount
 
-        if not processable.is_processed:
+        used_amount = processable.process(available_amount)
+
+        if deadline is None and not processable.is_processed():
             raise Exception("Processable not processed after using "
                             "required amount to process")
 
         spent_seconds = self._spent_seconds(used_amount)
-        processed_time = current_time + timedelta(seconds=spent_seconds)
-        processable.processed_at = processed_time
+        processed_time = start_time + timedelta(seconds=spent_seconds)
 
+        if not processable.is_processed():
+            return None
+
+        processable.processed_at = processed_time
+        heapq.heappop(self.process_fifo)
         return processable
 
     def is_empty(self):
@@ -95,11 +108,6 @@ class FIFOProcessor:
         return self.dt * ratio
 
 
-class _Model(NamedTuple):
-    processor: FIFOProcessor
-    used_time: datetime
-
-
 class Info(NamedTuple):
     processor: FIFOProcessor
     processable: Processable
@@ -109,11 +117,11 @@ class ParallelFIFOsProcessing:
 
     def __init__(
         self,
-        fifos: List[FIFOProcessor],
+        fifos: Dict[Any, FIFOProcessor],
         dt: float,
         loop_processed_handler: Callable[[Info], None] = lambda x: None,
     ) -> None:
-        self.fifos = list(map(lambda f: _Model(f, None), fifos))
+        self.fifos = fifos
         self.dt = dt
         self.loop_processed_handler = loop_processed_handler
 
@@ -147,10 +155,10 @@ class ParallelFIFOsProcessing:
     def get_min_processing_sec(self) -> Union[float, None]:
         min_processing_time = None
 
-        for f in self.fifos:
-            if f.processor.is_empty():
-                return
-            p_time = f.processor.calculate_next_process_time()
+        for processor in self.fifos.values():
+            if processor.is_empty():
+                continue
+            p_time = processor.calculate_next_process_time()
 
             if min_processing_time is None:
                 min_processing_time = p_time
@@ -165,12 +173,12 @@ class ParallelFIFOsProcessing:
     ) -> Tuple[List[Processable], List[Info]]:
         processed = []
         infos = []
-        for f in self.fifos:
-            p = f.processor.process_next(processing_time, deadline)
+        for processor in self.fifos.values():
+            p = processor.process_next(processing_time, deadline)
             if p is not None:
                 processed.append(p)
                 info = Info(
-                    f.processor,
+                    processor,
                     p
                 )
                 infos.append(info)

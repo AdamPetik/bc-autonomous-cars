@@ -21,7 +21,7 @@ class Processable(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def process(self, amout) -> None:
+    def process(self, amout) -> float:
         pass
 
     @abc.abstractmethod
@@ -47,10 +47,10 @@ class GeneralProcessable(Processable, Generic[T]):
     def to_process_amount(self) -> datetime:
         return self._to_process
 
-    def process(self, amout) -> float:
-        amout_to_use = min(amout, self._to_process)
-        self._to_process-= amout_to_use
-        return amout - amout_to_use
+    def process(self, amount) -> float:
+        amount_to_use = min(amount, self._to_process)
+        self._to_process-= amount_to_use
+        return amount - amount_to_use
 
     def is_processed(self) -> bool:
         return self._to_process <= 0
