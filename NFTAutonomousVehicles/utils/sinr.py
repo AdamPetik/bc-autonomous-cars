@@ -1,6 +1,6 @@
 import math
 from src.common.Location import Location
-from typing import List
+from typing import Any, List, Tuple
 from src.common.CommonFunctions import CommonFunctions
 
 
@@ -18,6 +18,7 @@ def calculate_sinr(
     cpl = city_path_loss(distance/1000)
     # print('fspl', fspl)
     # print('cpl', cpl)
+
     S = (w_to_dbm(gNB.tx_power) - cpl)
     # I = w_to_dbm(1e-19)
     I = 0
@@ -48,6 +49,7 @@ def calculate_sinr(
     I = w_to_dbm(I+1e-26)
     return sinr_ltecalc(S, N, I)
 
+
 def dbm_to_w(inp):
     return math.pow(10,(inp/10))/1000
 
@@ -60,9 +62,39 @@ def sinr_ltecalc(rsrp, noise, interference):
     result = dbm_to_w(rsrp)/(dbm_to_w(noise)+dbm_to_w(interference))
     return w_to_dbm(result/1000)
 
+
 def free_space_path_loss(distance: float, frequency: float):
     return (20*math.log10(distance) + 20*math.log10(frequency/1000) + __m_kHZ)
+
 
 def city_path_loss(distance: float):
     #TODO use frequency
     return 128.1+37.6*math.log10(distance)
+
+
+def calculate_highest_sinr(
+    l: Location,
+    base_stations: list
+) -> Tuple[float, Any]:
+    """
+    Calculate the highest SINR value at specified location by specified
+    base stations.
+
+    Args:
+        l (Location): Location of interest.
+        base_stations (List[BaseStationVirtual]): List of BSs to use
+
+    Returns:
+        Tuple[float, BaseStationVirtual]: SINR value, respective BS
+    """
+    best = -1000, None
+    for b in base_stations:
+        dist = __com.getCuda2dDistance(l, b.getLocation())
+        if b.association_coverage_radius < dist:
+            continue
+
+        s = calculate_sinr(l, b, base_stations)
+
+        if s > best[0]:
+            best = s, b
+    return best

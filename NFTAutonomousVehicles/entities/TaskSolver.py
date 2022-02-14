@@ -175,21 +175,21 @@ class TaskSolver(Placeable):
                 self.reduceSolvingCapacityForTimestamp(timestamp_iter, min(capacity_used, task.instruction_count))
                 task.instruction_count -= capacity_used
 
-                if basic_task.instruction_count <= 0:
+                if task.instruction_count <= 0:
 
-                    basic_task.status = TaskStatus.SOLVED
+                    task.status = TaskStatus.SOLVED
 
                     iter_time_processing = self.processing_iteration_duration_seconds
-                    iter_time_processing *= 1 + basic_task.instruction_count / capacity_used
+                    iter_time_processing *= 1 + task.instruction_count / capacity_used
 
                     solved_at = timestamp_iter + timedelta(seconds=iter_time_processing)
 
-                    basic_task.solved_by_task_solver_at = solved_at
-                    basic_task.returned_to_creator_at = solved_at + timedelta(seconds=basic_task.single_transfer_time)
-                    basic_task = processing_tasks.pop()[2]
-                    if not task.timed_out(basic_task.returned_to_creator_at, logger):
-                        basic_task.vehicle.receiveSolvedTask(basic_task, logger)
-
+                    task.solved_by_task_solver_at = solved_at
+                    task.returned_to_creator_at = solved_at + timedelta(seconds=task.single_transfer_time)
+                    task = processing_tasks.pop()[2]
+                    if not task.timed_out(task.returned_to_creator_at, logger):
+                        task.vehicle.receiveSolvedTask(task, logger)
+                    break
         self.basic_tasks_fifo += processing_tasks
         heapq.heapify(self.basic_tasks_fifo)
 

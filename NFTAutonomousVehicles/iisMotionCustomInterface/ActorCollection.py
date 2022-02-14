@@ -66,8 +66,13 @@ class ActorCollection:
         self.actorSet = {}
         self.mapGrid = mapGrid
         self.secondsPerTick = secondsPerTick
-        self.movementStrategy = MovementStrategyFactory().getStrategy(movementStrategy, self.locationsTable,
-                                                                      self.actorSet, self.map, self.mapGrid)
+
+        if isinstance(movementStrategy, MovementStrategyType):
+            self.movementStrategy = MovementStrategyFactory().getStrategy(movementStrategy, self.locationsTable,
+                                                                        self.actorSet, self.map, self.mapGrid)
+        else:
+            self.movementStrategy = movementStrategy(self.locationsTable, self.actorSet, self.map, self.mapGrid, None)
+
         self.attractors = []
         self.guiEnabled = False
         self.com = CommonFunctions()
@@ -348,6 +353,8 @@ class ActorCollection:
         timestamp = getDateTime()
         for actorId in self.locationsTable.getAllIds():
             vehicle: AutonomousVehicle = self.actorSet[int(actorId)]
+
+            Statistics().incremental_event(IncrementalEvent.GENERATED_TASK)
 
             task = Task(vehicle=vehicle, size_in_megabytes=vehicle.sample_task.size_in_megabytes,
                         created_at=timestamp, limit_time=vehicle.sample_task.limit_time,
