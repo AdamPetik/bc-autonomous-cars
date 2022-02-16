@@ -3,6 +3,8 @@ import json
 from heapq import heappush, heappop
 
 from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
+from NFTAutonomousVehicles.fifo_processing.connection_handler import RadioConnectionHandler
+from NFTAutonomousVehicles.fifo_processing.processable import TaskConnectionProcessable
 from NFTAutonomousVehicles.iisMotionCustomInterface.TaskSolverLoader import TaskSolverLoader
 from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
 from NFTAutonomousVehicles.utils.statistics import IncrementalEvent, Statistics
@@ -346,7 +348,7 @@ class ActorCollection:
                 logger.logTask(task)
 
 
-    def generateAndSendNonNFTTasks(self, solver_collection_names, logger):
+    def generateAndSendNonNFTTasks(self, solver_collection_names, logger, connection_handler: RadioConnectionHandler):
         from NFTAutonomousVehicles.taskProcessing.SolverFinder import SolverFinder
         solver_finder = SolverFinder(self.sinr_map, self.epsilon)
 
@@ -362,12 +364,20 @@ class ActorCollection:
                         instruction_count=vehicle.sample_task.instruction_count,
                         solving_time=vehicle.sample_task.solving_time)
 
-            non_signed_nft = solver_finder.searchForTaskSolverSINR(self.mapGrid, task, solver_collection_names)
+            # non_signed_nft = solver_finder.searchForTaskSolverSINR(self.mapGrid, task, solver_collection_names)
+            uplink = connection_handler.get_uplink_ue(vehicle.id)
+            if uplink is not None:
+                processable = TaskConnectionProcessable(task, task.created_at)
 
-            if (non_signed_nft is not None):
-                task.nft = non_signed_nft
-                non_signed_nft.solver.receiveTask(task, non_signed_nft.single_transfer_time)
-                task.solver = non_signed_nft.solver
+                uplink.fifos[actorId].add(
+                    (task.created_at, task.id, processable)
+                )
+
+            # if (non_signed_nft is not None):
+            #     connection_handler.connect(actorId, non_signed_nft.solver.id)
+            #     task.nft = non_signed_nft
+            #     non_signed_nft.solver.receiveTask(task, non_signed_nft.single_transfer_time)
+            #     task.solver = non_signed_nft.solver
             else:
                 task = Task(vehicle=vehicle, size_in_megabytes=vehicle.sample_task.size_in_megabytes,
                             created_at=timestamp, limit_time=vehicle.sample_task.limit_time,

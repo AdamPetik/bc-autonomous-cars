@@ -1,3 +1,5 @@
+from collections import defaultdict
+from functools import reduce
 import heapq
 from datetime import datetime, timedelta
 from tkinter import E
@@ -19,10 +21,15 @@ class FIFOProcessor:
     def add(self, processable: Tuple[Any, Processable]) -> None:
             heapq.heappush(self.process_fifo, processable)
 
-    def process_all(self, current_time: datetime) -> List[Processable]:
+    def process(
+        self,
+        current_time: datetime,
+        deadline: datetime = None,
+    ) -> List[Processable]:
         available_power = self.power
         processed_time = current_time
-        deadline = current_time + timedelta(seconds=self.dt)
+        if deadline is None:
+            deadline = current_time + timedelta(seconds=self.dt)
         processed: List[Processable] = []
 
         cond = lambda pf, pt, ap: len(pf) > 0 and deadline > pt and ap > 0
@@ -52,7 +59,7 @@ class FIFOProcessor:
 
             heapq.heappop(self.process_fifo)
 
-            spent_seconds = self._spent_seconds(used_amout)
+            spent_seconds = self._spent_seconds(used_amout) + seconds_wasted
 
             processed_time += timedelta(seconds=spent_seconds)
             processable.processed_at = processed_time
@@ -76,7 +83,7 @@ class FIFOProcessor:
                 return None
             start_time = max(current_time, processable.can_start_process_at)
             available_sec = (deadline - start_time).total_seconds()
-            available_amount = available_sec / self.dt * self.power # TODO verify
+            available_amount = available_sec / self.dt * self.power
         else:
             available_amount = processable.to_process_amount
 
@@ -99,9 +106,42 @@ class FIFOProcessor:
     def is_empty(self):
         return len(self.process_fifo) == 0
 
+    def get_length(self):
+        return len(self.process_fifo)
+
     def calculate_next_process_time(self) -> float:
         to_process = self.process_fifo[0][-1].to_process_amount
         return to_process / self.power * self.dt
+
+    def calculate_next_continues_process_time(
+        self,
+        current_time: datetime,
+    ) -> Union[float, None]:
+        if self.is_empty():
+            return None
+
+        seconds = 0
+
+        ends = max(
+            current_time,
+            self.get_first_processable().can_start_process_at
+        )
+
+        for *_, p in self.process_fifo:
+            if p.can_start_process_at > ends:
+                break;
+            seconds += p.to_process_amount / self.power * self.dt
+            ends += timedelta(seconds=seconds)
+
+        if seconds == 0:
+            return None
+
+        return seconds
+
+    def get_first_processable(self) -> Processable:
+        if len(self.process_fifo) == 0:
+            return None
+        return self.process_fifo[0][-1]
 
     def _spent_seconds(self, used_amount):
         ratio = used_amount / self.power
@@ -110,11 +150,10 @@ class FIFOProcessor:
 
 class Info(NamedTuple):
     processor: FIFOProcessor
-    processable: Processable
+    processable: List[Processable]
 
 
 class ParallelFIFOsProcessing:
-
     def __init__(
         self,
         fifos: Dict[Any, FIFOProcessor],
@@ -126,60 +165,141 @@ class ParallelFIFOsProcessing:
         self.loop_processed_handler = loop_processed_handler
 
     def process(self, current_time: datetime) -> List[Processable]:
-        processing_time = current_time
+        processed: List[Processable] = []
         deadline = current_time + timedelta(seconds=self.dt)
 
-        processed: List[Processable] = []
-
-        while(processing_time < deadline):
-            infos = []
-
-            min_processing_sec = self.get_min_processing_sec()
-
-            loop_deadline = processing_time + timedelta(
-                                                    seconds=min_processing_sec)
-
-            loop_deadline = min(deadline, loop_deadline)
-
-            loop_processed, infos = self.process_with_deadline(
-                                                processing_time, loop_deadline)
-            processed += loop_processed
-
-            if len(infos) > 0:
-                self.loop_processed_handler(infos)
-
-            processing_time = loop_deadline
-
-        return sorted(processed, key=lambda p: p.processed_at)
-
-    def get_min_processing_sec(self) -> Union[float, None]:
-        min_processing_time = None
-
         for processor in self.fifos.values():
-            if processor.is_empty():
-                continue
-            p_time = processor.calculate_next_process_time()
+            processed += processor.process(current_time, deadline)
 
-            if min_processing_time is None:
-                min_processing_time = p_time
-            else:
-                min_processing_time = min(min_processing_time, p_time)
-        return min_processing_time
+        return sorted(processed, key=lambda x: x.processed_at)
 
-    def process_with_deadline(
-        self,
-        processing_time: datetime,
-        deadline: datetime
-    ) -> Tuple[List[Processable], List[Info]]:
-        processed = []
-        infos = []
-        for processor in self.fifos.values():
-            p = processor.process_next(processing_time, deadline)
-            if p is not None:
-                processed.append(p)
-                info = Info(
-                    processor,
-                    p
-                )
-                infos.append(info)
-        return processed, infos
+
+
+# attempts to create advanced parallel fifo...
+# class ParallelFIFOsProcessing:
+
+#     def __init__(
+#         self,
+#         fifos: Dict[Any, FIFOProcessor],
+#         dt: float,
+#         loop_processed_handler: Callable[[Info], None] = lambda x: None,
+#     ) -> None:
+#         self.fifos = fifos
+#         self.dt = dt
+#         self.loop_processed_handler = loop_processed_handler
+
+#     # def on_event_time(self, time: datetime):
+#     #     pass
+
+#     def process(self, current_time: datetime) -> List[Processable]:
+#         processing_time = current_time
+#         deadline = current_time + timedelta(seconds=self.dt)
+
+#         processed: List[Processable] = []
+
+#         times = self.get_times(current_time, deadline)
+#         for event_time in times:
+#             loop_processed, infos = self.process_with_deadline(
+#                                                    processing_time, event_time)
+#             processing_time = event_time
+#             processed += loop_processed
+
+#             self.on_event_time(event_time)
+
+#         return processed
+#         # while(processing_time < deadline):
+#         #     infos = []
+
+#         #     min_processing_sec = self.get_min_processing_sec()
+
+#         #     loop_deadline = processing_time + timedelta(
+#         #                                             seconds=min_processing_sec)
+
+#         #     loop_deadline = min(deadline, loop_deadline)
+
+#         #     loop_processed, infos = self.process_with_deadline(
+#         #                                         processing_time, loop_deadline)
+#         #     processed += loop_processed
+
+#         #     if len(infos) > 0:
+#         #         self.loop_processed_handler(infos)
+
+#         #     processing_time = loop_deadline
+
+#         # return sorted(processed, key=lambda p: p.processed_at)
+
+#     def get_times(self, current_time: datetime, deadline: datetime) -> List[datetime]:
+#         times = []
+#         for processor in self.fifos.values():
+#             if processor.is_empty():
+#                 continue
+#             first_proc = processor.get_first_processable()
+#             starts_at = first_proc.can_start_process_at
+
+#             if starts_at >= deadline:
+#                 continue
+
+#             times.append(max(starts_at, current_time))
+
+#             processing_secs = processor.calculate_next_continues_process_time(
+#                                                                 current_time)
+#             if processing_secs is None:
+#                 continue
+
+#             ends_at = starts_at + timedelta(seconds=processing_secs)
+#             if ends_at > deadline:
+#                 continue
+
+#             times.append(ends_at)
+#         times.append(deadline)
+#         return sorted(list(dict.fromkeys(times)))
+
+#     # def get_min_processing_sec(self) -> Union[float, None]:
+#     #     min_processing_time = None
+
+#     #     for processor in self.fifos.values():
+#     #         if processor.is_empty():
+#     #             continue
+#     #         p_time = processor.calculate_next_process_time()
+
+#     #         if min_processing_time is None:
+#     #             min_processing_time = p_time
+#     #         else:
+#     #             min_processing_time = min(min_processing_time, p_time)
+#     #     return min_processing_time
+
+#     def process_with_deadline(
+#         self,
+#         processing_time: datetime,
+#         deadline: datetime
+#     ) -> Tuple[List[Processable], List[Info]]:
+#         processed = []
+#         infos = []
+#         for processor in self.fifos.values():
+#             p = processor.process(processing_time, deadline)
+#             if p:
+#                 processed += p
+#                 info = Info(
+#                     processor,
+#                     p
+#                 )
+#                 infos.append(info)
+#         return processed, infos
+
+#     # def process_next_with_deadline(
+#     #     self,
+#     #     processing_time: datetime,
+#     #     deadline: datetime
+#     # ) -> Tuple[List[Processable], List[Info]]:
+#     #     processed = []
+#     #     infos = []
+#     #     for processor in self.fifos.values():
+#     #         p = processor.process_next(processing_time, deadline)
+#     #         if p is not None:
+#     #             processed.append(p)
+#     #             info = Info(
+#     #                 processor,
+#     #                 p
+#     #             )
+#     #             infos.append(info)
+#     #     return processed, infos

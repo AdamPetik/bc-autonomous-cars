@@ -23,13 +23,13 @@ class AutonomousVehicle(Movable):
 
     def receiveSolvedTask(self, task: Task, logger) -> bool:
         # self.active_tasks.pop(task.id)
-
-        if task.status == TaskStatus.SOLVED and task.returned_to_creator_at <= task.deadline_at:
-            # self.successfully_solved_tasks[task.id] = task
-            task.solver.increaseReputation()
-        else:
-            # self.failed_tasks[task.id] = task
-            task.solver.decreaseReputation()
+        if task.solver is not None:
+            if task.status == TaskStatus.SOLVED and task.returned_to_creator_at <= task.deadline_at:
+                # self.successfully_solved_tasks[task.id] = task
+                task.solver.increaseReputation()
+            else:
+                # self.failed_tasks[task.id] = task
+                task.solver.decreaseReputation()
 
         logger.logTask(task)
 

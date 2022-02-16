@@ -4,9 +4,10 @@ import pandas as pd
 
 
 class RadioDataRate:
+    # http://anisimoff.org/eng/lte_mcs.html
     __sinr_table: pd.DataFrame = None
-    __modulation_schemes = {"QPSK":2,"16QAM":4,"64QAM":8}
-    fake_symbol_rate = 0.16 # TODO: find out real value...
+    __modulation_schemes = {"QPSK":2, "16QAM":4, "64QAM":6, "256QAM": 8}
+    fake_symbol_rate = 0.168 # 1 000 000 RE per RB per second 12 * 7 * 2000
 
     @classmethod
     def init_sinr_table(cls, path_sinr_table: str = './sinr.csv') -> None:
@@ -52,7 +53,7 @@ class RadioDataRate:
             connected_devices (int):
 
         Returns:
-            float: data rate
+            float: data rate in mbps
         """
         v, code_rate = RadioDataRate.get_v_and_code_rate(sinr_value)
         return RadioDataRate.datarate_formula(
@@ -75,7 +76,7 @@ class RadioDataRate:
                     that are assigned to the UE.
 
         Returns:
-            float: data rate.
+            float: data rate i mbps
         """
         v, code_rate = RadioDataRate.get_v_and_code_rate(sinr_value)
         return RadioDataRate.datarate_formula(

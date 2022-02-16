@@ -10,13 +10,13 @@ class Processable(abc.ABC):
         super().__init__()
         self.processed_at: datetime = None
 
-    @abc.abstractmethod
     @property
+    @abc.abstractmethod
     def can_start_process_at(self) -> datetime:
         pass
 
-    @abc.abstractmethod
     @property
+    @abc.abstractmethod
     def to_process_amount(self) -> float:
         pass
 
@@ -49,8 +49,8 @@ class GeneralProcessable(Processable, Generic[T]):
 
     def process(self, amount) -> float:
         amount_to_use = min(amount, self._to_process)
-        self._to_process-= amount_to_use
-        return amount - amount_to_use
+        self._to_process -= amount_to_use
+        return amount_to_use
 
     def is_processed(self) -> bool:
         return self._to_process <= 0
@@ -59,3 +59,8 @@ class GeneralProcessable(Processable, Generic[T]):
 class TaskCPUProcessable(GeneralProcessable[Task]):
     def __init__(self, entity: Task, can_start_at: datetime) -> None:
         super().__init__(entity, can_start_at, entity.instruction_count)
+
+
+class TaskConnectionProcessable(GeneralProcessable[Task]):
+    def __init__(self, entity: Task, can_start_at: datetime) -> None:
+        super().__init__(entity, can_start_at, entity.size_in_megabytes)

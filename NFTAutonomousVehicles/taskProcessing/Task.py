@@ -1,4 +1,3 @@
-from NFTAutonomousVehicles.entities.TaskSolver import TaskSolver
 import enum
 from src.common.SimulationClock import *
 from src.common.UniqueID import UniqueID

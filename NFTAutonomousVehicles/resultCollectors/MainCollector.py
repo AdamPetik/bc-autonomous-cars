@@ -113,6 +113,8 @@ class MainCollector:
             solver_id = task.solver.id
 
         if task.nft is None:
+            total_spent = task.getTotalTimeSpent() if task.getTotalTimeSpent() == 'null' else task.getTotalTimeSpent().total_seconds()
+            task.single_transfer_time = task.single_transfer_time if task.single_transfer_time is not None else 'null'
             insert_query = f"""INSERT INTO task
                                 (task_id, vehicle_id, vehicle_type, solver_id, instruction_count, size_in_megabytes, single_transfer_time,
                                 status_id, created_at, deadline_at, deadline_interval, total_time_spent,
@@ -120,7 +122,7 @@ class MainCollector:
                                 nft_id, nft_signed, nft_valid_from, nft_valid_to, nft_reserved_ips, nft_reserved_rbs) 
                                 VALUES 
                                 ({task.id},{task.vehicle.id},{task.vehicle.vehicle_type},{solver_id},{task.instruction_count},{task.size_in_megabytes},{task.single_transfer_time},
-                                {task.status.value},'{task.created_at}','{task.deadline_at}','{task.getDeadlineInterval()}', {task.getTotalTimeSpent()},
+                                {task.status.value},'{task.created_at}','{task.deadline_at}','{task.getDeadlineInterval()}', {total_spent},
                                 '{task.received_by_task_solver_at}','{task.solved_by_task_solver_at}','{task.returned_to_creator_at}'
                                 ,null, null, null, null, null, null)"""
 

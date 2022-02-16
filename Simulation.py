@@ -5,6 +5,9 @@ from typing import Any, Dict, List
 from isort import file
 from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 from NFTAutonomousVehicles.entities.TaskSolver import TaskSolver
+from NFTAutonomousVehicles.fifo_processing.connection_handler import RadioConnectionHandler
+from NFTAutonomousVehicles.fifo_processing.fifo_processor import FIFOProcessor, ParallelFIFOsProcessing
+from NFTAutonomousVehicles.fifo_processing.radio_communication_processor import SimpleBSRadioCommProcessor
 from NFTAutonomousVehicles.iisMotionCustomInterface.ActorCollection import ActorCollection
 from NFTAutonomousVehicles.iisMotionCustomInterface.IISMotion import IISMotion
 from NFTAutonomousVehicles.movement_strategy.sinr_aware_movement_strategy import SINRAwareMovementStrategy
@@ -16,6 +19,7 @@ from NFTAutonomousVehicles.utils import dict_utils
 from NFTAutonomousVehicles.utils.sinr_route_alg import SINRRouteALG
 from NFTAutonomousVehicles.utils.statistics import Statistics
 from src.city.ZoneType import ZoneType
+from src.city.grid.MapGrid import MapGrid
 from src.common.Location import Location
 from src.common.CommonFunctions import CommonFunctions
 from src.common.SimulationClock import *
@@ -23,8 +27,11 @@ import asyncio
 import time
 import osmnx as ox
 import matplotlib.pyplot as plt
+from NFTAutonomousVehicles.utils import sinr
+from NFTAutonomousVehicles.utils.radio_data_rate import RadioDataRate
 from src.movement.LocationPredictor import LocationPredictor
 from src.movement.movementStrategies.MovementStrategyType import MovementStrategyType
+from src.placeable.movable.Vehicles.Vehicle import Vehicle
 
 fun = CommonFunctions()
 
@@ -64,6 +71,49 @@ def _config_vehicles(collection: ActorCollection, config):
             solving_time=task_config.solving_time,
         )
         v.setSpeed(config.speed_ms)
+
+
+
+
+def _create_fifos(
+    bss: List[TaskSolver],
+    ues: Dict[Any, AutonomousVehicle],
+    dt,
+    sinr_map: SINRMap,
+    type: str,
+) -> Dict[Any, ParallelFIFOsProcessing]:
+    def _calculate_data_rate(ue_id, bs: TaskSolver, connections):
+        location = ues[ue_id].getLocation()
+        sinr_val = sinr_map.get_loc(location)
+        if sinr_val == sinr_map.init_sinr_val:
+            sinr_val = sinr.calculate_sinr(location, bs, bss)
+            sinr_map.update_bs_map_loc(location, sinr_val, bs.id)
+        return RadioDataRate.calculate_avgrb(sinr_val, bs.resource_blocks, connections)
+
+    dict_ = {}
+    for bs in bss:
+        dict_[bs.id] = SimpleBSRadioCommProcessor(bs,{}, dt, _calculate_data_rate)
+        if type == 'uplink':
+            bs.uplink_conn_processor = dict_[bs.id]
+        elif type == 'downlink':
+            bs.downlink_conn_processor = dict_[bs.id]
+        else:
+            raise ValueError(f"not supported type '{type}'")
+    return dict_
+
+def connect_to_bss(
+    map_grid: MapGrid,
+    vehicles: List[AutonomousVehicle],
+    coverage_radius,
+    bs_coll_name: str,
+    conn_handler: RadioConnectionHandler,
+):
+    for vehicle in vehicles:
+        bss: List[TaskSolver] = map_grid.getActorsInRadius(
+                        coverage_radius, [bs_coll_name], vehicle.getLocation())
+
+        bs = fun.getClosestActorFromList(vehicle.getLocation(), bss)
+        conn_handler.connect(vehicle.id, bs.id)
 
 
 def main_run(config_dict: Dict[str, Any]):
@@ -162,6 +212,20 @@ def main_run(config_dict: Dict[str, Any]):
     vehicles_collection.sinr_map = sinr_map
     vehicles_collection.epsilon = config.algorithm.epsilon
 
+    base_stations = list(taskSolvers.actorSet.values())
+    uplinks = _create_fifos(base_stations, vehicles_collection.actorSet, secondsPerTick, sinr_map, 'uplink')
+    downlinks = _create_fifos(base_stations, vehicles_collection.actorSet, secondsPerTick, sinr_map, 'downlink')
+
+    # processing power is 0 because we will update this every step
+    default_handler = lambda rch, uid, bid: FIFOProcessor(0, secondsPerTick)
+
+    radio_conn_handler = RadioConnectionHandler(
+        uplinks,
+        downlinks,
+        on_connect_uplink = default_handler,
+        on_connect_downlink = default_handler,
+    )
+
     # method that moves agents for desired number of iterations
     # async because of "GUI"
     async def simulate():
@@ -184,7 +248,14 @@ def main_run(config_dict: Dict[str, Any]):
             if vehicles_type == 0:
                 vehicles_collection.generateAndSendNFTTasks(logger)
             elif vehicles_type > 0:
-                vehicles_collection.generateAndSendNonNFTTasks(['taskSolvers'], logger)
+                connect_to_bss(
+                    iismotion.mapGrid,
+                    vehicles_collection.actorSet.values(),
+                    config.base_stations.coverage_radius,
+                    'taskSolvers',
+                    radio_conn_handler,
+                )
+                vehicles_collection.generateAndSendNonNFTTasks(['taskSolvers'], logger, radio_conn_handler)
             else:
                 raise Exception(f"Not implemented type of vehicle {vehicles_type}")
 
