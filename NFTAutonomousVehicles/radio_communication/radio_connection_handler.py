@@ -9,6 +9,7 @@ _HandlerDiscon = Callable[['RadioConnectionHandler', Any, Any], None]
 
 
 class RadioConnectionHandler():
+    """Handles and stores radio connections"""
     def __init__(
         self,
         uplinks: Dict[Any, ParallelFIFOsProcessing],
@@ -28,6 +29,8 @@ class RadioConnectionHandler():
         self.on_disconnect = on_disconnect
 
     def connect(self, ue_id, bs_id):
+        """Connect ue to base station"""
+
         current_bs_id = self.connections_ue_bs[ue_id]
         if current_bs_id is not None:
             if current_bs_id == bs_id:
@@ -43,6 +46,7 @@ class RadioConnectionHandler():
                                                             self, ue_id, bs_id)
 
     def disconnect(self, ue_id):
+        """disconnect ue"""
         if ue_id in self.connections_ue_bs.keys():
             bs_id = self.connections_ue_bs[ue_id]
             self.connections_ue_bs.pop(ue_id)
@@ -55,19 +59,24 @@ class RadioConnectionHandler():
                 self.on_disconnect(self, ue_id, bs_id)
 
     def get_uplink_ue(self, ue_id):
+        """Get uplink processor for the specified UE"""
         bs_id = self.connections_ue_bs[ue_id]
         if bs_id is None:
             return None
         return self.uplinks[bs_id]
 
     def get_downlink_ue(self, ue_id):
+        """Get downlink processor for the specified UE"""
         bs_id = self.connections_ue_bs[ue_id]
         if bs_id is None:
             return None
         return self.downlinks[bs_id]
 
     def get_uplink_bs(self, bs_id):
+        """Get uplink processor for the specified bs"""
+
         return self.uplinks[bs_id]
 
     def get_downlink_bs(self, bs_id):
+        """Get downlink processor for the specified bs"""
         return self.downlinks[bs_id]

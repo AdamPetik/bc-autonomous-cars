@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from NFTAutonomousVehicles.entities.TaskSolver import TaskSolver
-from NFTAutonomousVehicles.fifo_processing.radio_communication_processor import SimpleBSRadioCommProcessor
+from NFTAutonomousVehicles.radio_communication.radio_communication_processor import SimpleBSRadioCommProcessor
 from NFTAutonomousVehicles.taskProcessing.Task import Task
 from NFTAutonomousVehicles.fifo_processing.fifo_processor import FIFOProcessor
 from NFTAutonomousVehicles.fifo_processing.processable import TaskCPUProcessable, TaskConnectionProcessable
@@ -75,5 +75,7 @@ def _test_rcp():
     print(result[0].processed_at)
     print(result[1].processed_at)
     print(result[2].processed_at)
+
+
 if __name__ == '__main__':
     _test_rcp()

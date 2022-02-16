@@ -1,5 +1,3 @@
-from collections import defaultdict
-from functools import reduce
 import heapq
 from datetime import datetime, timedelta
 from tkinter import E
@@ -9,49 +7,86 @@ from .processable import Processable
 
 
 class FIFOProcessor:
+
     def __init__(self, step_available_power, dt) -> None:
         self.power = step_available_power
         self.dt = dt
         self.process_fifo: List[Tuple[Any, Processable]] = []
 
     def add_list(self, processables: List[Tuple[Any, Processable]]) -> None:
+        """Add list of processables.
+
+        Args:
+            processables (List[Tuple[Any, Processable]]): List of tuples where
+                the last element of tuple is processable and elements before
+                it are used to specify order in the heap.
+        """
         for p in processables:
             self.add(p)
 
     def add(self, processable: Tuple[Any, Processable]) -> None:
-            heapq.heappush(self.process_fifo, processable)
+        """Add processable.
+
+        Args:
+            processable (Tuple[Any, Processable]): Tuple where the last element
+                of tuple is processable and elements before
+                it are used to specify order in the heap.
+        """
+        heapq.heappush(self.process_fifo, processable)
 
     def process(
         self,
         current_time: datetime,
         deadline: datetime = None,
     ) -> List[Processable]:
+        """Process the processables.
+
+        Args:
+            current_time (datetime): Current datetime.
+            deadline (datetime, optional): Specifies the end of the process
+                step. Defaults to None, and deadline is created by adding
+                self.dt to the current_time.
+
+        Returns:
+            List[Processable]: Processed processables.
+        """
         available_power = self.power
         processed_time = current_time
+
         if deadline is None:
             deadline = current_time + timedelta(seconds=self.dt)
+        else:
+            available_power *= (deadline - current_time).total_seconds() / self.dt
+
         processed: List[Processable] = []
 
         cond = lambda pf, pt, ap: len(pf) > 0 and deadline > pt and ap > 0
 
         while cond(self.process_fifo, processed_time, available_power):
+            # get the first processable
             processable = self.process_fifo[0][-1]
 
+            # if its processed add to processed list (should not happen though)
             if processable.is_processed():
                 processed.append(processable)
                 continue
 
+            # adjust start time of processing
             started_time = max(
                     processed_time, processable.can_start_process_at)
 
+            # break if cannot process
             if started_time > deadline:
                 break
 
+            # recalculate avalable power
             seconds_wasted = (started_time - processed_time).total_seconds()
             available_power -= seconds_wasted / self.dt * self.power
 
+            # process the processable
             used_amout = processable.process(available_power)
 
+            # if is processable was not processed, then we know for sure that power was
             if not processable.is_processed():
                 break
 
@@ -59,11 +94,12 @@ class FIFOProcessor:
 
             heapq.heappop(self.process_fifo)
 
+            # calculate when it was processed
             spent_seconds = self._spent_seconds(used_amout) + seconds_wasted
-
             processed_time += timedelta(seconds=spent_seconds)
             processable.processed_at = processed_time
 
+            # decrease available_power by used amount
             available_power -= used_amout
         return processed
 
@@ -72,6 +108,10 @@ class FIFOProcessor:
         current_time: datetime,
         deadline: datetime = None,
     ) -> Processable:
+        """Process only next processable if any available. if deadline is
+        specified, processes until deadline is reached.
+        NOTE: This method has not been tested..
+        """
         if len(self.process_fifo) == 0:
             return None
 
@@ -148,21 +188,18 @@ class FIFOProcessor:
         return self.dt * ratio
 
 
-class Info(NamedTuple):
-    processor: FIFOProcessor
-    processable: List[Processable]
-
-
 class ParallelFIFOsProcessing:
+    """
+    Groups processing fifos together in order to handle them as a group.
+    (for example as a radio connections FIFOs between UEs and base stations)
+    """
     def __init__(
         self,
         fifos: Dict[Any, FIFOProcessor],
         dt: float,
-        loop_processed_handler: Callable[[Info], None] = lambda x: None,
     ) -> None:
         self.fifos = fifos
         self.dt = dt
-        self.loop_processed_handler = loop_processed_handler
 
     def process(self, current_time: datetime) -> List[Processable]:
         processed: List[Processable] = []
@@ -176,6 +213,9 @@ class ParallelFIFOsProcessing:
 
 
 # attempts to create advanced parallel fifo...
+# class Info(NamedTuple):
+#     processor: FIFOProcessor
+#     processable: List[Processable]
 # class ParallelFIFOsProcessing:
 
 #     def __init__(

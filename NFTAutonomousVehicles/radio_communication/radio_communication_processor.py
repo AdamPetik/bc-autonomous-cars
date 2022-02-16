@@ -7,7 +7,7 @@ from NFTAutonomousVehicles.utils.sinr_map import SINRMap
 
 
 class SimpleBSRadioCommProcessor(ParallelFIFOsProcessing):
-
+    """Radio communication processor"""
     def __init__(
         self,
         bs: TaskSolver,

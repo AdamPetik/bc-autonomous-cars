@@ -3,8 +3,8 @@ import json
 from heapq import heappush, heappop
 
 from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
-from NFTAutonomousVehicles.fifo_processing.connection_handler import RadioConnectionHandler
-from NFTAutonomousVehicles.fifo_processing.processable import TaskConnectionProcessable
+from NFTAutonomousVehicles.radio_communication.radio_connection_handler import RadioConnectionHandler
+from NFTAutonomousVehicles.taskProcessing.processables import TaskConnectionProcessable
 from NFTAutonomousVehicles.iisMotionCustomInterface.TaskSolverLoader import TaskSolverLoader
 from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
 from NFTAutonomousVehicles.utils.statistics import IncrementalEvent, Statistics

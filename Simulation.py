@@ -5,9 +5,9 @@ from typing import Any, Dict, List
 from isort import file
 from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 from NFTAutonomousVehicles.entities.TaskSolver import TaskSolver
-from NFTAutonomousVehicles.fifo_processing.connection_handler import RadioConnectionHandler
+from NFTAutonomousVehicles.radio_communication.radio_connection_handler import RadioConnectionHandler
 from NFTAutonomousVehicles.fifo_processing.fifo_processor import FIFOProcessor, ParallelFIFOsProcessing
-from NFTAutonomousVehicles.fifo_processing.radio_communication_processor import SimpleBSRadioCommProcessor
+from NFTAutonomousVehicles.radio_communication.radio_communication_processor import SimpleBSRadioCommProcessor
 from NFTAutonomousVehicles.iisMotionCustomInterface.ActorCollection import ActorCollection
 from NFTAutonomousVehicles.iisMotionCustomInterface.IISMotion import IISMotion
 from NFTAutonomousVehicles.movement_strategy.sinr_aware_movement_strategy import SINRAwareMovementStrategy
@@ -73,8 +73,6 @@ def _config_vehicles(collection: ActorCollection, config):
         v.setSpeed(config.speed_ms)
 
 
-
-
 def _create_fifos(
     bss: List[TaskSolver],
     ues: Dict[Any, AutonomousVehicle],
@@ -100,6 +98,7 @@ def _create_fifos(
         else:
             raise ValueError(f"not supported type '{type}'")
     return dict_
+
 
 def connect_to_bss(
     map_grid: MapGrid,
@@ -212,6 +211,7 @@ def main_run(config_dict: Dict[str, Any]):
     vehicles_collection.sinr_map = sinr_map
     vehicles_collection.epsilon = config.algorithm.epsilon
 
+    # CONNECTIONS INITIALIZATION
     base_stations = list(taskSolvers.actorSet.values())
     uplinks = _create_fifos(base_stations, vehicles_collection.actorSet, secondsPerTick, sinr_map, 'uplink')
     downlinks = _create_fifos(base_stations, vehicles_collection.actorSet, secondsPerTick, sinr_map, 'downlink')

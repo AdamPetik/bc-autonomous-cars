@@ -6,6 +6,8 @@ from NFTAutonomousVehicles.taskProcessing.Task import Task
 
 
 class Processable(abc.ABC):
+    """Base class for processables."""
+
     def __init__(self) -> None:
         super().__init__()
         self.processed_at: datetime = None
@@ -13,20 +15,30 @@ class Processable(abc.ABC):
     @property
     @abc.abstractmethod
     def can_start_process_at(self) -> datetime:
-        pass
+        """
+        Returns datetime indicating from when the processable is ready
+        to be processed
+        """
 
     @property
     @abc.abstractmethod
     def to_process_amount(self) -> float:
-        pass
+        """Amount to be processed"""
 
     @abc.abstractmethod
     def process(self, amout) -> float:
-        pass
+        """Do processing.
+
+        Args:
+            amout (_type_): available amount to be used for processing
+
+        Returns:
+            float: Used amount for processing
+        """
 
     @abc.abstractmethod
     def is_processed(self) -> bool:
-        pass
+        """Bool value indicating whether has been processed already"""
 
 
 T = TypeVar('T')
@@ -54,13 +66,3 @@ class GeneralProcessable(Processable, Generic[T]):
 
     def is_processed(self) -> bool:
         return self._to_process <= 0
-
-
-class TaskCPUProcessable(GeneralProcessable[Task]):
-    def __init__(self, entity: Task, can_start_at: datetime) -> None:
-        super().__init__(entity, can_start_at, entity.instruction_count)
-
-
-class TaskConnectionProcessable(GeneralProcessable[Task]):
-    def __init__(self, entity: Task, can_start_at: datetime) -> None:
-        super().__init__(entity, can_start_at, entity.size_in_megabytes)

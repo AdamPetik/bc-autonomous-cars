@@ -1,12 +1,10 @@
 # from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 # from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
-from asyncio import Task
 from heapq import heappush, heappop
 import heapq
 from typing import Generator, List
 from NFTAutonomousVehicles.fifo_processing.fifo_processor import FIFOProcessor, ParallelFIFOsProcessing
-from NFTAutonomousVehicles.fifo_processing.processable import Processable, TaskCPUProcessable, TaskConnectionProcessable
-from NFTAutonomousVehicles.utils.datetime_interval import DatetimeInterval
+from NFTAutonomousVehicles.taskProcessing.processables import TaskCPUProcessable, TaskConnectionProcessable
 
 from src.city.Map import Map
 from src.placeable.Placeable import Placeable
