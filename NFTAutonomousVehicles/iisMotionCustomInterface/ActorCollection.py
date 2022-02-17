@@ -247,11 +247,11 @@ class ActorCollection:
 
         timestamp = copy.deepcopy(getDateTime())
         locationsTable = LocationsTable(self.mapGrid)
-        actor_set = copy.deepcopy(self.actorSet)
+        # actor_set = copy.deepcopy(self.actorSet)
 
         movementStrategy = MovementStrategyFactory().getStrategy(
             MovementStrategyType.RANDOM_WAYPOINT_CITY, locationsTable,
-            actor_set, self.map, self.mapGrid)
+            {}, self.map, self.mapGrid)
 
         current_location = copy.deepcopy(actor.getLocation())
         previous_target = copy.deepcopy(current_location)

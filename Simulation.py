@@ -6,13 +6,14 @@ from isort import file
 from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 from NFTAutonomousVehicles.entities.TaskSolver import TaskSolver
 from NFTAutonomousVehicles.radio_communication.radio_connection_handler import RadioConnectionHandler
-from NFTAutonomousVehicles.fifo_processing.fifo_processor import FIFOProcessor, ParallelFIFOsProcessing
+from NFTAutonomousVehicles.fifo_processing.fifo_processor import ParallelFIFOsProcessing
 from NFTAutonomousVehicles.radio_communication.radio_communication_processor import SimpleBSRadioCommProcessor
 from NFTAutonomousVehicles.iisMotionCustomInterface.ActorCollection import ActorCollection
 from NFTAutonomousVehicles.iisMotionCustomInterface.IISMotion import IISMotion
 from NFTAutonomousVehicles.movement_strategy.sinr_aware_movement_strategy import SINRAwareMovementStrategy
 from NFTAutonomousVehicles.resultCollectors.MainCollector import MainCollector
 from NFTAutonomousVehicles.taskProcessing.Task import Task
+from NFTAutonomousVehicles.taskProcessing.task_fifo_processor import TaskFIFOProcessor
 from NFTAutonomousVehicles.utils.sinr_map import SINRMap
 from NFTAutonomousVehicles.utils.run_utils import parallel_simulation_run
 from NFTAutonomousVehicles.utils import dict_utils
@@ -48,9 +49,10 @@ def plott_map_and_nodes(G_map, nodes: list, filename:str):
     plt.close(fig)
 
 
-def _config_task_solvers(collection: ActorCollection, config):
+def _config_task_solvers(collection: ActorCollection, config, dt, logger):
     bss: List[TaskSolver] = list(collection.actorSet.values())
     for bs in bss:
+        bs.cpu_processor = TaskFIFOProcessor(config.ips, dt, logger)
         bs.ips_available = config.ips
         bs.tx_frequency = config.tx_frequency
         bs.tx_power = config.tx_power
@@ -175,7 +177,7 @@ def main_run(config_dict: Dict[str, Any]):
         taskSolvers.storeTaskSolvers(filename)
     else:
         taskSolvers.loadTaskSolversFromFile(config.base_stations.location_file)
-    _config_task_solvers(taskSolvers, config.base_stations)
+    _config_task_solvers(taskSolvers, config.base_stations, secondsPerTick, logger)
     iismotion.getActorCollection("taskSolvers").setSolversProcessingIterationDurationInSeconds(processing_iteration_duration_seconds)
 
     # VEHICLES CONFIG
@@ -217,7 +219,7 @@ def main_run(config_dict: Dict[str, Any]):
     downlinks = _create_fifos(base_stations, vehicles_collection.actorSet, secondsPerTick, sinr_map, 'downlink')
 
     # processing power is 0 because we will update this every step
-    default_handler = lambda rch, uid, bid: FIFOProcessor(0, secondsPerTick)
+    default_handler = lambda rch, uid, bid: TaskFIFOProcessor(0, secondsPerTick, logger)
 
     radio_conn_handler = RadioConnectionHandler(
         uplinks,

@@ -2,8 +2,6 @@ import abc
 from datetime import datetime
 from typing import Generic, TypeVar
 
-from NFTAutonomousVehicles.taskProcessing.Task import Task
-
 
 class Processable(abc.ABC):
     """Base class for processables."""
@@ -11,6 +9,16 @@ class Processable(abc.ABC):
     def __init__(self) -> None:
         super().__init__()
         self.processed_at: datetime = None
+
+    @property
+    def timeout_at(self) -> datetime:
+        """Processable timeout. None means it does not have a timeout."""
+        return None
+
+    def is_timed_out(self, current_time: datetime):
+        if self.timeout_at is None:
+            return False
+        return current_time >= self.timeout_at
 
     @property
     @abc.abstractmethod
@@ -45,19 +53,30 @@ T = TypeVar('T')
 
 
 class GeneralProcessable(Processable, Generic[T]):
-    def __init__(self, entity: T, can_start_at: datetime, to_process: float) -> None:
+    def __init__(
+        self,
+        entity: T,
+        can_start_at: datetime,
+        to_process: float,
+        timeout: datetime = None,
+    ) -> None:
         super().__init__()
         self.entity = entity
         self.can_start_at = can_start_at
         self._to_process = to_process
+        self.timeout = timeout
 
     @property
     def can_start_process_at(self) -> datetime:
         return self.can_start_at
 
     @property
-    def to_process_amount(self) -> datetime:
+    def to_process_amount(self) -> float:
         return self._to_process
+
+    @property
+    def timeout_at(self) -> datetime:
+        return self.timeout
 
     def process(self, amount) -> float:
         amount_to_use = min(amount, self._to_process)

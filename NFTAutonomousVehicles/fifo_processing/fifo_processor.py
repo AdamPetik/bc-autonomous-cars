@@ -1,7 +1,6 @@
 import heapq
 from datetime import datetime, timedelta
-from tkinter import E
-from typing import Any, Callable, Dict, List, NamedTuple, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 from .processable import Processable
 
@@ -83,25 +82,41 @@ class FIFOProcessor:
             seconds_wasted = (started_time - processed_time).total_seconds()
             available_power -= seconds_wasted / self.dt * self.power
 
-            # process the processable
-            used_amout = processable.process(available_power)
+            timed_out = processable.is_timed_out(deadline)
+            if timed_out:
+                # if its going to be timed out during this process step, give
+                # the processable just the right amount of power until timeout
+                seconds = (processable.timeout_at - started_time).total_seconds()
+                to_be_used = seconds / self.dt * self.power
+                used_amount = processable.process(to_be_used)
+            else:
+                # process the processable
+                used_amount = processable.process(available_power)
 
-            # if is processable was not processed, then we know for sure that power was
-            if not processable.is_processed():
+            # if is processable was not processed and not timed out,
+            # then we know for sure that all power was used so we can break
+            if not (processable.is_processed() or timed_out):
                 break
 
-            processed.append(processable)
+            # calculate time after processing
+            spent_seconds = self._spent_seconds(used_amount) + seconds_wasted
+            processed_time += timedelta(seconds=spent_seconds)
+
+            if not processable.is_processed() and timed_out:
+                # don't add timed out processable to the processed list
+                self._on_deadline(processable, processed_time)
+            else:
+                processed.append(processable)
+                processable.processed_at = processed_time
 
             heapq.heappop(self.process_fifo)
 
-            # calculate when it was processed
-            spent_seconds = self._spent_seconds(used_amout) + seconds_wasted
-            processed_time += timedelta(seconds=spent_seconds)
-            processable.processed_at = processed_time
-
             # decrease available_power by used amount
-            available_power -= used_amout
+            available_power -= used_amount
         return processed
+
+    def _on_deadline(self, processable: Processable, time: datetime) -> None:
+        pass
 
     def process_next(
         self,
@@ -110,7 +125,7 @@ class FIFOProcessor:
     ) -> Processable:
         """Process only next processable if any available. if deadline is
         specified, processes until deadline is reached.
-        NOTE: This method has not been tested..
+        NOTE: This method has not been tested.. WIP
         """
         if len(self.process_fifo) == 0:
             return None
@@ -157,6 +172,7 @@ class FIFOProcessor:
         self,
         current_time: datetime,
     ) -> Union[float, None]:
+        """NOTE: not tested, WIP"""
         if self.is_empty():
             return None
 
@@ -188,7 +204,7 @@ class FIFOProcessor:
         return self.dt * ratio
 
 
-class ParallelFIFOsProcessing:
+class ParallelFIFOsProcessing():
     """
     Groups processing fifos together in order to handle them as a group.
     (for example as a radio connections FIFOs between UEs and base stations)
