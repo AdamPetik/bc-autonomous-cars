@@ -2,8 +2,9 @@
 # from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
 from heapq import heappush, heappop
 import heapq
-from typing import Generator
-from NFTAutonomousVehicles.utils.datetime_interval import DatetimeInterval
+from typing import Generator, List
+from NFTAutonomousVehicles.fifo_processing.fifo_processor import FIFOProcessor, ParallelFIFOsProcessing
+from NFTAutonomousVehicles.taskProcessing.processables import TaskCPUProcessable, TaskConnectionProcessable
 
 from src.city.Map import Map
 from src.placeable.Placeable import Placeable
@@ -22,7 +23,10 @@ class TaskSolver(Placeable):
         super(TaskSolver, self).__init__(locationsTable, map)
         # ips - instructions per second
         self.simulation_dt = simulation_dt
-        self.ips_available = 70
+        self.uplink_conn_processor: ParallelFIFOsProcessing = None
+        self.downlink_conn_processor: ParallelFIFOsProcessing = None
+        _ips_available = 70
+        self.cpu_processor = FIFOProcessor(_ips_available, self.simulation_dt)
         self.setProcessingIterationDurationInSeconds(0.1)
         self.ips_capacity = {}
         self.nft_collection = {}
@@ -40,6 +44,14 @@ class TaskSolver(Placeable):
         self.tx_frequency = 2e9 # Hz
         self.bandwidth = 10e6 # Hz  ==  10 MHz
         self.association_coverage_radius = 900 # m
+
+    @property
+    def ips_available(self):
+        return self.cpu_processor.power
+
+    @ips_available.setter
+    def ips_available(self, value):
+        self.cpu_processor.power = value
 
     def setProcessingIterationDurationInSeconds(self, value):
         self.processing_iteration_duration_seconds = value
@@ -70,6 +82,52 @@ class TaskSolver(Placeable):
                                  f"NFT is valid from: {task.nft.valid_from} to: {task.nft.valid_to}")
         task.status = TaskStatus.SUBMITTED
 
+    # def receive_taks_fifo(self, task):
+    #     processable = TaskConnectionProcessable(task, task.created_at)
+    #     to_add = (task.created_at, task.id, processable)
+    #     self.uplink_conn_processor.fifos[task.vehicle.id].add(to_add)
+
+    def process_uplink(self, timestamp: datetime, logger):
+        from NFTAutonomousVehicles.taskProcessing.Task import TaskStatus
+
+        sended = self.uplink_conn_processor.process(timestamp)
+        if len(sended) == 0:
+            return
+
+        def map_fun(p: TaskCPUProcessable):
+            p.entity.received_by_task_solver_at = p.processed_at
+            p.entity.solver = self
+            p.entity.status = TaskStatus.SUBMITTED
+
+            new_p = TaskCPUProcessable(p.entity, p.processed_at)
+            return (p.entity.created_at, p.entity.id, new_p)
+
+        cpu_processables = list(map(map_fun, sended))
+        self.cpu_processor.add_list(cpu_processables)
+
+    def process_cpu(self, timestamp: datetime, logger):
+        processed = self.cpu_processor.process(timestamp)
+        def map_fun(p: TaskConnectionProcessable):
+            p.entity.solved_by_task_solver_at = p.processed_at
+            new_p = TaskConnectionProcessable(p.entity, p.processed_at)
+            return (p.entity.created_at, p.entity.id, new_p)
+
+        processables = list(map(map_fun, processed))
+        for p in processables:
+            if p[-1].entity.timed_out(p[-1].entity.solved_by_task_solver_at, logger):
+                continue
+            self.downlink_conn_processor.fifos[p[-1].entity.vehicle.id].add(p)
+
+    def process_downlink(self, timestamp: datetime, logger):
+        from NFTAutonomousVehicles.taskProcessing.Task import TaskStatus
+
+        sended: List[TaskConnectionProcessable] = self.downlink_conn_processor.process(timestamp)
+        for s in sended:
+            s.entity.returned_to_creator_at = s.processed_at
+            if s.entity.timed_out(s.processed_at, logger):
+                continue
+            s.entity.status = TaskStatus.SOLVED
+            s.entity.vehicle.receiveSolvedTask(s.entity, logger)
 
     def solveTasks(self, timestamp, logger):
         #solve tasks with NFTs first
@@ -129,6 +187,10 @@ class TaskSolver(Placeable):
             timestamp += timedelta(seconds=self.processing_iteration_duration_seconds)
 
     def solveTasksFromBasicTaskFifo(self, timestamp, logger):
+        self.process_uplink(timestamp, logger)
+        self.process_cpu(timestamp, logger)
+        self.process_downlink(timestamp, logger)
+        return
         from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
 
         end_timestamp = timestamp + timedelta(seconds=self.simulation_dt)

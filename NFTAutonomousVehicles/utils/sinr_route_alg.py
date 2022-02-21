@@ -85,7 +85,7 @@ class SINRRouteALG:
         for l in locs:
             sinr_value = self.sinr_map.get_loc(l)
             if sinr_value == self.sinr_map.init_sinr_val:
-                sinr_value = sinr.calculate_highest_sinr(l, self.base_stations)
+                sinr_value, _ = sinr.calculate_highest_sinr(l, self.base_stations)
                 self.sinr_map.update_loc(l, sinr_value)
 
             if sinr_value < self.sinr_limit:
