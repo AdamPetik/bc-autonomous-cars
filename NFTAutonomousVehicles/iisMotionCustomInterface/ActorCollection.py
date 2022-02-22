@@ -364,20 +364,19 @@ class ActorCollection:
                         instruction_count=vehicle.sample_task.instruction_count,
                         solving_time=vehicle.sample_task.solving_time)
 
-            # non_signed_nft = solver_finder.searchForTaskSolverSINR(self.mapGrid, task, solver_collection_names)
-            uplink = connection_handler.get_uplink_ue(vehicle.id)
-            if uplink is not None:
-                processable = TaskConnectionProcessable(task, task.created_at)
+            non_signed_nft = solver_finder.searchForTaskSolverClosest(self.mapGrid, task, solver_collection_names)
+            # uplink = connection_handler.get_uplink_ue(vehicle.id)
+            # if uplink is not None:
+            #     processable = TaskConnectionProcessable(task, task.created_at)
 
-                uplink.fifos[actorId].add(
-                    (task.created_at, task.id, processable)
-                )
+            #     uplink.fifos[actorId].add(
+            #         (task.created_at, task.id, processable)
+            #     )
 
-            # if (non_signed_nft is not None):
-            #     connection_handler.connect(actorId, non_signed_nft.solver.id)
-            #     task.nft = non_signed_nft
-            #     non_signed_nft.solver.receiveTask(task, non_signed_nft.single_transfer_time)
-            #     task.solver = non_signed_nft.solver
+            if (non_signed_nft is not None):
+                task.nft = non_signed_nft
+                non_signed_nft.solver.receiveTask(task, non_signed_nft.single_transfer_time, True)
+                task.solver = non_signed_nft.solver
             else:
                 task = Task(vehicle=vehicle, size_in_megabytes=vehicle.sample_task.size_in_megabytes,
                             created_at=timestamp, limit_time=vehicle.sample_task.limit_time,

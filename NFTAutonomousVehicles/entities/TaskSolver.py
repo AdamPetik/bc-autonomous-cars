@@ -67,11 +67,18 @@ class TaskSolver(Placeable):
         tasks_in_total = self.no_of_successful_tasks + self.no_of_failed_tasks
         return tasks_in_total / self.no_of_successful_tasks
 
-    def receiveTask(self, task, transfer_seconds: int):
+    def receiveTask(self, task, transfer_seconds: int, decrease_notsigned_nft_resources=False):
         from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
         task.single_transfer_time = transfer_seconds
         task.received_by_task_solver_at = task.created_at + + timedelta(seconds=transfer_seconds)
         if(task.nft.signed == False):
+            if decrease_notsigned_nft_resources:
+                nft = task.nft
+                req_capacity_per_iter = nft.reserved_ips * self.processing_iteration_duration_seconds
+                success = self.reduceSolvingCapacityBetweenTimestamps(nft.valid_from, nft.valid_to, req_capacity_per_iter)
+                if not success:
+                    raise Exception("cannot decrease solving capacity")
+                self.reduce_rbs(nft.valid_from, nft.valid_to, nft.reserved_rbs)
             heappush(self.basic_tasks_fifo, (task.received_by_task_solver_at, task.id, task))
         else:
             if task.nft.valid_from <= task.received_by_task_solver_at <= task.nft.valid_to:
@@ -132,9 +139,27 @@ class TaskSolver(Placeable):
     def solveTasks(self, timestamp, logger):
         #solve tasks with NFTs first
         self.solveTasksFromNFTTaskFifo(timestamp, logger)
+        # solve basic as NFT
+        self.solveBasicTasksAsNFT(timestamp, logger)
         #solve other tasks without NFTs
-        self.solveTasksFromBasicTaskFifo(timestamp, logger)
+        # self.solveTasksFromBasicTaskFifo(timestamp, logger)
 
+    def solveBasicTasksAsNFT(self, timestamp, logger):
+        end_timestamp = timestamp + timedelta(seconds=self.simulation_dt)
+
+        while(len(self.basic_tasks_fifo) > 0 and self.basic_tasks_fifo[0][2].received_by_task_solver_at < end_timestamp):
+            nft_task = self.basic_tasks_fifo[0][2]
+
+            if not self.verifyNFTValidForTimestamp(nft_task, timestamp):
+                ValueError(f"Non NFT is not valid for given timestamp #{timestamp} | NFT: {nft_task.nft.toJson()}")
+
+            self._process_single_as_nft_task(
+                timestamp,
+                end_timestamp,
+                nft_task,
+                self.basic_tasks_fifo,
+                logger
+            )
 
     def solveTasksFromNFTTaskFifo(self, timestamp, logger):
         from NFTAutonomousVehicles.taskProcessing.Task import TaskStatus
@@ -147,14 +172,15 @@ class TaskSolver(Placeable):
             if not self.verifyNFTValidForTimestamp(nft_task, timestamp):
                 ValueError(f"NFT is not valid for given timestamp #{timestamp} | NFT: {nft_task.nft.toJson()}")
 
-            self._process_single_nft_task(
+            self._process_single_as_nft_task(
                 timestamp,
                 end_timestamp,
                 nft_task,
+                self.nft_tasks_fifo,
                 logger
             )
 
-    def _process_single_nft_task(self, step_start, step_end, task, logger):
+    def _process_single_as_nft_task(self, step_start, step_end, task, fifo, logger):
         from NFTAutonomousVehicles.taskProcessing.Task import TaskStatus
         start = max(task.received_by_task_solver_at, step_start, task.nft.valid_from)
         end = min(task.nft.valid_to, step_end)
@@ -174,7 +200,7 @@ class TaskSolver(Placeable):
         task.status = TaskStatus.SOLVED
         task.solved_by_task_solver_at = solved_at
         task.returned_to_creator_at = solved_at + timedelta(seconds=task.single_transfer_time)
-        task = heappop(self.nft_tasks_fifo)[2]
+        task = heappop(fifo)[2]
         task.vehicle.receiveSolvedTask(task, logger)
 
 
@@ -187,10 +213,10 @@ class TaskSolver(Placeable):
             timestamp += timedelta(seconds=self.processing_iteration_duration_seconds)
 
     def solveTasksFromBasicTaskFifo(self, timestamp, logger):
-        self.process_uplink(timestamp, logger)
-        self.process_cpu(timestamp, logger)
-        self.process_downlink(timestamp, logger)
-        return
+        # self.process_uplink(timestamp, logger)
+        # self.process_cpu(timestamp, logger)
+        # self.process_downlink(timestamp, logger)
+        # return
         from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
 
         end_timestamp = timestamp + timedelta(seconds=self.simulation_dt)
