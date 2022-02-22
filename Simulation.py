@@ -250,13 +250,13 @@ def main_run(config_dict: Dict[str, Any]):
             if vehicles_type == 0:
                 vehicles_collection.generateAndSendNFTTasks(logger)
             elif vehicles_type > 0:
-                connect_to_bss(
-                    iismotion.mapGrid,
-                    vehicles_collection.actorSet.values(),
-                    config.base_stations.coverage_radius,
-                    'taskSolvers',
-                    radio_conn_handler,
-                )
+                # connect_to_bss(
+                #     iismotion.mapGrid,
+                #     vehicles_collection.actorSet.values(),
+                #     config.base_stations.coverage_radius,
+                #     'taskSolvers',
+                #     radio_conn_handler,
+                # )
                 vehicles_collection.generateAndSendNonNFTTasks(['taskSolvers'], logger, radio_conn_handler)
             else:
                 raise Exception(f"Not implemented type of vehicle {vehicles_type}")

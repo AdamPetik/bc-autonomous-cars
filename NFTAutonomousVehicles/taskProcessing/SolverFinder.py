@@ -1,11 +1,9 @@
 from datetime import datetime, timedelta
 from typing import List, Tuple, Union
-import heapq
 from NFTAutonomousVehicles.utils.sinr_map import SINRMap
 
 from src.common.CommonFunctions import CommonFunctions
 from src.common.Location import Location
-from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 from NFTAutonomousVehicles.entities.TaskSolver import TaskSolver
 from NFTAutonomousVehicles.taskProcessing.CommonFunctionsForTaskSolving import CommonFunctionsForTaskSolving
 from NFTAutonomousVehicles.taskProcessing.NFT import NFT
@@ -46,6 +44,67 @@ class SolverFinder:
         # print(f"Solver was not available for timestamp {start_timestamp}-{task.deadline_at} capacity:{task.instruction_count}")
 
         return None
+
+    def searchForTaskSolverClosest(
+        self,
+        map_grid,
+        task: Task,
+        solver_collection_names,
+    ) -> Union[None,NFT]:
+        effective_radius = 900
+        epsilon_ratio = 1 - self.epsilon
+
+        vehicle_loc = task.vehicle.getLocation()
+
+        potential_solvers = map_grid.getActorsInRadius(
+            effective_radius,
+            solver_collection_names,
+            vehicle_loc,
+        )
+
+        solver = self.com.getClosestActorFromList(
+            vehicle_loc,
+            potential_solvers,
+        )
+
+        start_timestamp = task.created_at
+        end_timestamp = start_timestamp + timedelta(seconds=task.limit_time)
+
+        relaxed_limit_time = task.limit_time * epsilon_ratio
+        relaxed_solving_time = task.solving_time * epsilon_ratio
+
+        max_single_transfer_time = (relaxed_limit_time - relaxed_solving_time) / 2
+        min_data_rate_mbps = task.size_in_megabytes / max_single_transfer_time
+
+        ips_required = task.instruction_count / relaxed_solving_time
+
+        result = bs_metrics(
+            solver,
+            vehicle_loc,
+            min_data_rate_mbps,
+            potential_solvers,
+            ips_required,
+            (start_timestamp, end_timestamp),
+            self.sinr_map
+        )
+
+        if result is None:
+            return None
+
+        rbs, _, solver, datarate = result
+        transfer_time = task.size_in_megabytes / datarate
+
+        nft_unsigned = solver.getUnsignedNFT(
+            start_timestamp,
+            end_timestamp,
+            ips_required,
+            transfer_time,
+            datarate,
+            task.vehicle
+        )
+        nft_unsigned.reserved_rbs = rbs
+
+        return nft_unsigned
 
     def searchForTaskSolverSINR(
         self,
@@ -161,34 +220,49 @@ def search_best_solver(
     """
     l = []
     for bs in base_stations:
-        if not bs.checkAvailableCapacityBetweenTimestamps(
-                *timeinterval, required_ips):
+        r = bs_metrics(bs,location, min_data_rate_mbps, base_stations,
+                        required_ips, timeinterval, sinr_map)
+        if r is None:
             continue
 
-        sinrval = sinr_map.get_from_bs_map_loc(location, bs.id)
-        if sinrval == sinr_map.init_sinr_val:
-            sinrval = sinr.calculate_sinr(location, bs, base_stations)
-            sinr_map.update_bs_map_loc(location, sinrval, bs.id)
-
-        if sinrval < -6.9:
-            continue
-
-        max_rbs = bs.max_available_rbs(*timeinterval)
-
-        min_rbs = RadioDataRate.get_rb_count(sinrval, min_data_rate_mbps)
-
-        if min_rbs > max_rbs:
-            continue
-
-        data_rate = RadioDataRate.calculate(sinrval, min_rbs)
-
-        l.append((min_rbs, sinrval, bs, data_rate))
+        l.append(*r)
 
     if len(l) == 0:
         return None
 
     return sorted(l, key=lambda x: x[0])[0]
 
+def bs_metrics(
+    bs: TaskSolver,
+    location: Location,
+    min_data_rate_mbps: float,
+    base_stations: List[TaskSolver],
+    required_ips: float,
+    timeinterval: Tuple[datetime, datetime],
+    sinr_map: SINRMap
+) -> Union[None, Tuple[int, TaskSolver, float, float]]:
+    if not bs.checkAvailableCapacityBetweenTimestamps(
+            *timeinterval, required_ips):
+        return None
+
+    sinrval = sinr_map.get_from_bs_map_loc(location, bs.id)
+    if sinrval == sinr_map.init_sinr_val:
+        sinrval = sinr.calculate_sinr(location, bs, base_stations)
+        sinr_map.update_bs_map_loc(location, sinrval, bs.id)
+
+    if sinrval < -6.9:
+        return None
+
+    max_rbs = bs.max_available_rbs(*timeinterval)
+
+    min_rbs = RadioDataRate.get_rb_count(sinrval, min_data_rate_mbps)
+
+    if min_rbs > max_rbs:
+        return None
+
+    data_rate = RadioDataRate.calculate(sinrval, min_rbs)
+
+    return (min_rbs, sinrval, bs, data_rate)
 
 # NOTE: draft of pseudocode....
 # @dataclass
