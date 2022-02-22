@@ -142,7 +142,7 @@ class TaskSolver(Placeable):
         # solve basic as NFT
         self.solveBasicTasksAsNFT(timestamp, logger)
         #solve other tasks without NFTs
-        self.solveTasksFromBasicTaskFifo(timestamp, logger)
+        # self.solveTasksFromBasicTaskFifo(timestamp, logger)
 
     def solveBasicTasksAsNFT(self, timestamp, logger):
         end_timestamp = timestamp + timedelta(seconds=self.simulation_dt)
