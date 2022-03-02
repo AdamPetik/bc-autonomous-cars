@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, Generator, Tuple, Union, List
 import functools
 import networkx as nx
 import osmnx as ox
-# from geopy import distance
+import matplotlib.pyplot as plt
 
 from src.city.Map import Map
 from src.common.CommonFunctions import CommonFunctions
@@ -235,3 +235,24 @@ def get_loc_with_time(
         timestamp += timedelta(seconds=dt)
 
     return dict_
+
+
+def plot_routes(map: Map, routes: list, filepath='routes.png', c=['r']):
+    raw_paths = [to_raw_path(r) for r in routes]
+    if len(routes) == 1:
+        ox.plot_graph_route(
+            map.driveGraph,
+            routes[0],
+            route_color=c[0],
+            save=True,
+            filepath=filepath
+        )
+    else:
+        fig, ax = ox.plot_graph_routes(
+            map.driveGraph,
+            raw_paths,
+            save=True,
+            filepath='routes.png',
+            route_colors=c
+        )
+    plt.close(fig)

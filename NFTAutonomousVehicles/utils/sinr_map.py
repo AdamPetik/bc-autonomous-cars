@@ -139,7 +139,6 @@ class SINRMap:
                 (1 - self.update_param) * curr_value
                 + self.update_param * value
             )
-        self._map[x, y] = max(self._map[x,y], value)
 
         if ue_id is not None:
             """if ue_id is provided, value is cached"""

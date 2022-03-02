@@ -239,7 +239,7 @@ def main_run(config_dict: Dict[str, Any]):
             stepStart = time.time()
 
             if vehicles_type == 0:
-                vehicles_collection.planRoutesForNFTVehicles(['taskSolvers'], logger)
+                vehicles_collection.planRoutesForNFTVehiclesNew(['taskSolvers'], logger)
             elif vehicles_type > 0:
                 vehicles_collection.planRoutesForNonNFTVehicles(newDay)
             else:
