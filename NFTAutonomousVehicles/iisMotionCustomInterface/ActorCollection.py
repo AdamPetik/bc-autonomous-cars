@@ -1,4 +1,5 @@
 import copy
+from functools import reduce
 import json
 from heapq import heappush, heappop
 
@@ -47,8 +48,14 @@ class ProposedRoute:
 
     def getMetrics(self):
         distance_weight = 0
-        service_wight = 1
-        return distance_weight * self.route_step_count + service_wight * self.missing_NFTs
+        service_weight = 1
+        path_metric = distance_weight * self.route_step_count + service_weight * self.missing_NFTs
+
+        sum_rbs = lambda total_rbs, nft: total_rbs + nft.reserved_rbs
+        total_rbs = reduce(sum_rbs, self.timestamp_nft_dict.values(), 0)
+        rbs_metric = total_rbs / self.route_step_count
+
+        return path_metric, rbs_metric
 
     def toJson(self) -> str:
         output = {}
@@ -193,14 +200,12 @@ class ActorCollection:
                 ):
                     proposed_route = self.getProposedRoute(path, actor, self.secondsPerTick, solver_collection_names)
                     proposed_route.index = proposed_routes_counter
-                    heappush(proposed_routes, (proposed_route.getMetrics(), proposed_routes_counter, proposed_route))
-                    if(proposed_route.missing_NFTs == 0):
-                        break
+                    heappush(proposed_routes, (*proposed_route.getMetrics(), proposed_routes_counter, proposed_route))
 
                     proposed_routes_counter = proposed_routes_counter + 1
 
                 #also each vehicle should have sample task prepared without timestamps
-                best_proposed_route = heappop(proposed_routes)[2]
+                best_proposed_route = heappop(proposed_routes)[-1]
                 logger.logProposedRoute(actor,getDateTime(),len(proposed_routes)+1,shortest_proposed_route, best_proposed_route)
 
                 # print(f"This route was chosen as BEST: {best_proposed_route.toJson()}")
