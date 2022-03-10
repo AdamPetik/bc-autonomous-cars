@@ -6,7 +6,7 @@ from functools import reduce
 from heapq import heappush, heappop
 from pickletools import stackslice
 from turtle import distance
-from typing import Any, DefaultDict, Dict, Iterator, List, NamedTuple, Tuple, TypeVar, Union
+from typing import Any, DefaultDict, Dict, Generator, Iterator, List, NamedTuple, Tuple, TypeVar, Union
 from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 from NFTAutonomousVehicles.taskProcessing.NFT import NFT
 from NFTAutonomousVehicles.taskProcessing.SolverFinder import SolverFinder
