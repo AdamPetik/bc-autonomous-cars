@@ -227,7 +227,7 @@ def main_run(config_dict: Dict[str, Any]):
         on_connect_uplink = default_handler,
         on_connect_downlink = default_handler,
     )
-
+    sim_time = 0
     # method that moves agents for desired number of iterations
     # async because of "GUI"
     async def simulate():
@@ -273,6 +273,8 @@ def main_run(config_dict: Dict[str, Any]):
         elapsed = end - start
         print("================== Simulation finished ===================")
         print("elapsed time:", elapsed)
+        nonlocal sim_time
+        sim_time = elapsed
 
     if (guiEnabled):
         loop = asyncio.get_event_loop()
@@ -302,7 +304,8 @@ def main_run(config_dict: Dict[str, Any]):
     Statistics().save_json(
         config.result_dir,
         config.result_name,
-        config=config_dict
+        config=config_dict,
+        additional_info={'simulation_time': sim_time}
     )
 
 if __name__ == '__main__':
