@@ -158,9 +158,9 @@ class MainCollector:
                             (
                             {vehicle.id},'{planing_at}', {number_of_routes_considered},
                             {shortest_route.index}, {shortest_route.missing_NFTs}, {shortest_route.route_step_count}, {shortest_route.route_length_in_meters},
-                            {len(shortest_route.segments_without_solvers)},{shortest_route.getMetrics()},
+                            {len(shortest_route.segments_without_solvers)},{shortest_route.getMetrics()[0]},
                             {best_route.index}, {best_route.missing_NFTs}, {best_route.route_step_count}, {best_route.route_length_in_meters},
-                            {len(best_route.segments_without_solvers)},{best_route.getMetrics()}
+                            {len(best_route.segments_without_solvers)},{best_route.getMetrics()[0]}
                             )"""
         cursor = self.conn.cursor()
         cursor.execute(insert_query)

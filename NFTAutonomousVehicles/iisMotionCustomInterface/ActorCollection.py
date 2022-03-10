@@ -1,4 +1,5 @@
 import copy
+from functools import reduce
 import json
 from heapq import heappush, heappop
 
@@ -28,6 +29,8 @@ import time
 
 from src.common.MacrocellLoader import MacrocellLoader
 from src.placeable.stationary.Attractor import Attractor
+from NFTAutonomousVehicles.utils import path_utils
+
 
 class ProposedRoute:
     def __init__(self, index=None, path_of_locations=None, timestamp_location_dict=None, timestamp_solver_dict=None, timestamp_nft_dict=None,
@@ -44,9 +47,15 @@ class ProposedRoute:
         self.segments_without_solvers = segments_without_solvers
 
     def getMetrics(self):
-        distance_weight = 1
-        service_wight = 1
-        return distance_weight * self.route_step_count + service_wight * self.missing_NFTs
+        distance_weight = 0
+        service_weight = 1
+        path_metric = distance_weight * self.route_step_count + service_weight * self.missing_NFTs
+
+        sum_rbs = lambda total_rbs, nft: total_rbs + nft.reserved_rbs
+        total_rbs = reduce(sum_rbs, self.timestamp_nft_dict.values(), 0)
+        rbs_metric = total_rbs / self.route_step_count
+
+        return path_metric, rbs_metric
 
     def toJson(self) -> str:
         output = {}
@@ -157,7 +166,56 @@ class ActorCollection:
                 # for acti in walkable.activityQueue:
                 #     print(acti.toJson())
 
+    def planRoutesForNFTVehiclesNew(self, solver_collection_names, logger, t_coef=1.3):
+        # print("planRouteAccordingToConnections")
+        for actorId in self.locationsTable.getAllIds():
+            # print(f"actor#{actorId}")
+            actor: AutonomousVehicle = self.actorSet[int(actorId)]
+            planned_location = self.movementStrategy.getPreloadedLocation(actor, getDateTime())
 
+            if (planned_location is None):
+                # print(f"Actor#{actorId} requires route planning for time:{getDateTime()}")
+
+                newTargetLocation = self.map.getRandomNode(actor.getLocation())
+
+                shortest_path_of_locations, raw_path = path_utils.get_shortest_path(
+                                                    self.map, actor.getLocation(), newTargetLocation)
+                # plan route towards targetLocation here
+                proposed_routes = []
+                proposed_routes_counter = 0
+
+                shortest_proposed_route = self.getProposedRoute(shortest_path_of_locations, actor, self.secondsPerTick, solver_collection_names)
+                shortest_proposed_route.index = proposed_routes_counter
+
+                actor_speed = actor.getSpeed() / self.secondsPerTick
+                t_shortest = path_utils.path_time(self.map, raw_path, actor_speed)
+                t_longest = t_coef * t_shortest
+
+                for path, raw_path in path_utils.get_shortest_paths(
+                    self.map, actor.getLocation(), newTargetLocation,
+                    break_condition=path_utils.break_condition_time(
+                        t_longest,
+                        actor_speed,
+                    )
+                ):
+                    proposed_route = self.getProposedRoute(path, actor, self.secondsPerTick, solver_collection_names)
+                    proposed_route.index = proposed_routes_counter
+                    heappush(proposed_routes, (*proposed_route.getMetrics(), proposed_routes_counter, proposed_route))
+
+                    proposed_routes_counter = proposed_routes_counter + 1
+
+                #also each vehicle should have sample task prepared without timestamps
+                best_proposed_route = heappop(proposed_routes)[-1]
+                logger.logProposedRoute(actor,getDateTime(),len(proposed_routes)+1,shortest_proposed_route, best_proposed_route)
+
+                # print(f"This route was chosen as BEST: {best_proposed_route.toJson()}")
+
+                #TODO compare best route with shortest route here! to have stats about route planning
+
+                for timestamp, unsigned_nft in best_proposed_route.timestamp_nft_dict.items():
+                    unsigned_nft.solver.signNFT(unsigned_nft)
+                self.movementStrategy.preloadLocationsDictForWalkable(actor, best_proposed_route.timestamp_location_dict)
+                actor.active_proposed_route = best_proposed_route
 
     def planRoutesForNFTVehicles(self, solver_collection_names, logger):
         # print("planRouteAccordingToConnections")
@@ -230,7 +288,7 @@ class ActorCollection:
         from NFTAutonomousVehicles.taskProcessing.SolverFinder import SolverFinder
         from NFTAutonomousVehicles.taskProcessing.Task import Task
         original_path_of_locations = copy.deepcopy(path_of_locations)
-        original_path_of_locations.insert(0, self.map.getNearestNodeLocation(actor.getLocation()))
+        # original_path_of_locations.insert(0, self.map.getNearestNodeLocation(actor.getLocation()))
 
         origin_location = path_of_locations[0]
         destination_location = path_of_locations[-1]

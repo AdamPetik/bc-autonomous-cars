@@ -225,7 +225,7 @@ def search_best_solver(
         if r is None:
             continue
 
-        l.append(*r)
+        l.append(r)
 
     if len(l) == 0:
         return None
