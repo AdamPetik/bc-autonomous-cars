@@ -2,6 +2,7 @@ import copy
 from functools import reduce
 import json
 from heapq import heappush, heappop
+import networkx as nx
 
 from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 from NFTAutonomousVehicles.radio_communication.radio_connection_handler import RadioConnectionHandler
@@ -26,7 +27,7 @@ from random import randint
 from datetime import datetime
 from src.common.SimulationClock import *
 import time
-
+from NFTAutonomousVehicles.utils.a_star import AStarMetric
 from src.common.MacrocellLoader import MacrocellLoader
 from src.placeable.stationary.Attractor import Attractor
 from NFTAutonomousVehicles.utils import path_utils
@@ -89,7 +90,8 @@ class ActorCollection:
         self.com = CommonFunctions()
         self.sinr_map = None
         self.epsilon = None
-
+        self.a_star = AStarMetric(
+            self.map.driveGraph, self.secondsPerTick, self.mapGrid, None, None)
 
     def setGuiEnabled(self, value: bool) -> 'ActorCollection':
         self.guiEnabled = value
@@ -165,6 +167,51 @@ class ActorCollection:
                 # print("AfterRemoval")
                 # for acti in walkable.activityQueue:
                 #     print(acti.toJson())
+    def planRoutesForNFTVehiclesAStar(self, solver_collection_names, logger, t_coef=1.3):
+        from NFTAutonomousVehicles.taskProcessing.SolverFinder import SolverFinder
+        solver_finder = SolverFinder(self.sinr_map, self.epsilon)
+
+        self.a_star.solver_finder = solver_finder
+        self.a_star.solver_coll_names = solver_collection_names
+
+        for actorId in self.locationsTable.getAllIds():
+            # print(f"actor#{actorId}")
+            actor: AutonomousVehicle = self.actorSet[int(actorId)]
+            planned_location = self.movementStrategy.getPreloadedLocation(actor, getDateTime())
+
+            if (planned_location is None):
+                newTargetLocation = self.map.getRandomNode(actor.getLocation())
+
+                _, raw_path = path_utils.get_shortest_path(
+                                                    self.map, actor.getLocation(), newTargetLocation)
+
+                longest_allowed_path_m = t_coef * nx.path_weight(
+                        self.map.driveGraph, raw_path, weight='length')
+                # plan route towards targetLocation here
+                result = self.a_star.search_path(
+                    self.map.getNearestNode(actor.getLocation()),
+                    destination=newTargetLocation.osmnxNode,
+                    origin_timestamp=getDateTime()-timedelta(seconds=self.secondsPerTick),
+                    longest_distance=longest_allowed_path_m,
+                    vehicle=actor,
+                )
+
+                if result is None:
+                    raise Exception("No path found - this should be impossible.")
+
+                proposed_route = ProposedRoute(
+                    index=0,
+                    path_of_locations=result.path,
+                    timestamp_location_dict=result.location_dict,
+                    timestamp_nft_dict=result.nft_dict)
+
+                for unsigned_nft in proposed_route.timestamp_nft_dict.values():
+                    unsigned_nft.solver.signNFT(unsigned_nft)
+
+                self.movementStrategy.preloadLocationsDictForWalkable(
+                                actor, proposed_route.timestamp_location_dict)
+                actor.active_proposed_route = proposed_route
+
 
     def planRoutesForNFTVehiclesNew(self, solver_collection_names, logger, t_coef=1.3):
         # print("planRouteAccordingToConnections")
