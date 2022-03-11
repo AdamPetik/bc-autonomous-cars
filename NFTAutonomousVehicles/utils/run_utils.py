@@ -40,8 +40,9 @@ def parallel_simulation_run(main_fun: Callable[[Dict[str, any]], None]) -> None:
         processes = min(args.processes, len(config_dicts))
 
     # run as pool of workers
+    file_lock = multiprocessing.Lock()
     with multiprocessing.Pool(processes=processes,) as pool:
-        pool.map(main_fun, config_dicts)
+        pool.map(main_fun, (config_dicts, file_lock))
 
 
 def preprocess_config(config_dict: Dict[str, Any]) -> List[Dict[str, Any]]:

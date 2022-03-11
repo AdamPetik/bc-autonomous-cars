@@ -1,4 +1,5 @@
 import copy
+from multiprocessing.synchronize import Lock as LockType
 import os
 from typing import Any, Dict, List
 
@@ -117,9 +118,8 @@ def connect_to_bss(
         conn_handler.connect(vehicle.id, bs.id)
 
 
-def main_run(config_dict: Dict[str, Any]):
+def main_run(config_dict: Dict[str, Any], file_lock: LockType):
     config = dict_utils.to_object(config_dict)
-
     # exit()
     # Setting location that will be simulated - this is not used since we are
     # using a custom map but we need this in order to crete IISMotion instance
@@ -142,7 +142,9 @@ def main_run(config_dict: Dict[str, Any]):
 
     t_coef = dict_utils.path_get(config_dict, 'algorithm.route_t_coef', 1.3)
 
-    logger = MainCollector(config.result_dir, config.result_name)
+    file_lock.acquire()
+    logger = MainCollector(config.result_dir, config.result_name, )
+    file_lock.release()
 
     iismotion = IISMotion(radius=radius,
                         location=location,
