@@ -109,9 +109,17 @@ def normalize_path(path: List[Location], dist: float) -> List[Location]:
 
 
 def path_time(map: Map, path, speed, weight='length') -> float:
+    if len(path) == 0:
+        return 0
+    if isinstance(path[0], Location):
+        path = to_raw_path(path)
     length = nx.path_weight(map.driveGraph, path, weight=weight)
     return length / speed
 
+def path_length_diff(map: Map, path1, path2, weight='length') -> float:
+    len1 = path_time(map, path1, 1, weight)
+    len2 = path_time(map, path2, 1, weight)
+    return len1 / len2
 
 def break_condition_time(
     max_t: float,
@@ -123,7 +131,7 @@ def break_condition_time(
     return fun
 
 
-def _convert_path(map: Map, path) -> List[Location]:
+def convert_path(map: Map, path) -> List[Location]:
     """Convert nx path to "list of locations path" """
     nodes = map.gdfNodes.loc[path]
     loc_list = []

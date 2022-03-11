@@ -140,6 +140,7 @@ def main_run(config_dict: Dict[str, Any]):
     processing_iteration_duration_seconds = config.simulation.processing_dt
     noOfTicks = config.simulation.steps  # number of iterations simulation will take
 
+    t_coef = dict_utils.path_get(config_dict, 'algorithm.route_t_coef', 1.3)
 
     logger = MainCollector(config.result_dir, config.result_name)
 
@@ -193,7 +194,7 @@ def main_run(config_dict: Dict[str, Any]):
             iismotion.map,
             sinr_limit=5,
             dist=5,
-            t_coef=1.3, #TODO how to set this?
+            t_coef=t_coef,
             sinr_map=sinr_map,
             speed_ms=config.vehicles.speed_ms,
             base_stations=list(taskSolvers.actorSet.values())
@@ -239,7 +240,7 @@ def main_run(config_dict: Dict[str, Any]):
             stepStart = time.time()
 
             if vehicles_type == 0:
-                vehicles_collection.planRoutesForNFTVehiclesAStar(['taskSolvers'], logger)
+                vehicles_collection.planRoutesForNFTVehiclesAStar(['taskSolvers'], logger, t_coef)
             elif vehicles_type > 0:
                 vehicles_collection.planRoutesForNonNFTVehicles(newDay)
             else:

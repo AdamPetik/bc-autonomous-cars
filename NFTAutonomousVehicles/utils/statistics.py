@@ -17,7 +17,7 @@ class IncrementalEvent(Enum):
 
 
 class MeanEvent(Enum):
-    pass
+    ROUTE_PROLONGATION = 'route_prolongation'
 
 
 class Statistics(metaclass=Singleton):

@@ -9,7 +9,7 @@ from NFTAutonomousVehicles.radio_communication.radio_connection_handler import R
 from NFTAutonomousVehicles.taskProcessing.processables import TaskConnectionProcessable
 from NFTAutonomousVehicles.iisMotionCustomInterface.TaskSolverLoader import TaskSolverLoader
 from NFTAutonomousVehicles.taskProcessing.Task import Task, TaskStatus
-from NFTAutonomousVehicles.utils.statistics import IncrementalEvent, Statistics
+from NFTAutonomousVehicles.utils.statistics import IncrementalEvent, MeanEvent, Statistics
 from src.city.ZoneType import ZoneType
 from src.common.CommonFunctions import CommonFunctions
 from src.common.FemtocellLoader import FemtocellLoader
@@ -114,6 +114,7 @@ class ActorCollection:
             if walkable.getCurrentMovementActivity() == None:
                 # route will be obtained from movement activity
                 locationRoute = self.movementStrategy.getNewRoute(walkable)
+                Statistics().mean_event(MeanEvent.ROUTE_PROLONGATION, 0)
                 # print("Actor has no activity, so we create one using route: ", locationRoute)
                 # for location in locationRoute:
                 #     print(f"{location.toJson()}")
@@ -182,7 +183,7 @@ class ActorCollection:
             if (planned_location is None):
                 newTargetLocation = self.map.getRandomNode(actor.getLocation())
 
-                _, raw_path = path_utils.get_shortest_path(
+                shortest_path, raw_path = path_utils.get_shortest_path(
                                                     self.map, actor.getLocation(), newTargetLocation)
 
                 longest_allowed_path_m = t_coef * nx.path_weight(
@@ -198,7 +199,10 @@ class ActorCollection:
 
                 if result is None:
                     raise Exception("No path found - this should be impossible.")
-
+                prolongation = path_utils.path_length_diff(
+                                        self.map, result.path, shortest_path)
+                Statistics().mean_event(
+                        MeanEvent.ROUTE_PROLONGATION, prolongation)
                 proposed_route = ProposedRoute(
                     index=0,
                     path_of_locations=result.path,
