@@ -1,12 +1,13 @@
 from collections import defaultdict
 import copy
+import numpy as np
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import reduce
 from heapq import heappush, heappop
 from pickletools import stackslice
 from turtle import distance
-from typing import Any, DefaultDict, Dict, Generator, Iterator, List, NamedTuple, Tuple, TypeVar, Union
+from typing import Any, DefaultDict, Dict, Generator, Iterator, List, NamedTuple, Set, Tuple, TypeVar, Union
 from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 from NFTAutonomousVehicles.taskProcessing.NFT import NFT
 from NFTAutonomousVehicles.taskProcessing.SolverFinder import SolverFinder
@@ -104,6 +105,7 @@ class AStarMetric:
 
         stack: List[Tuple[Metrics,Node]] = []
         came_from: Dict[Node, CameFromData] = {}
+        history: Set[Node] = set()
 
         g_score: DefaultDict[Node, Metrics] = defaultdict(lambda: _InfinityMetric())
         g_score[origin_node] = _ZeroMetric()
@@ -111,6 +113,7 @@ class AStarMetric:
         f_score: DefaultDict[Node, Metrics] = defaultdict(lambda: _InfinityMetric())
         f_score[origin_node] = self.h(origin, destination)
 
+        history.add(origin_node)
         heappush(stack, (*f_score[origin_node], origin_node.osmnx_node, origin_node))
 
         while len(stack) > 0:
@@ -123,13 +126,19 @@ class AStarMetric:
                 g_metrics, neighbor_node, t_nft, t_loc = self.g(current_node, neighbor, vehicle)
                 tentative_g_score = add_tuples(g_score[current_node], g_metrics)
 
-                if tentative_g_score < g_score[neighbor_node] and tentative_g_score.distance <= longest_distance:
+                if tentative_g_score < g_score[neighbor_node]:
                     came_from[neighbor_node] = CameFromData(current_node, t_nft, t_loc)
                     g_score[neighbor_node] = tentative_g_score
                     f_score[neighbor_node] = add_tuples(tentative_g_score, self.h(neighbor, destination))
 
-                    if neighbor_node not in stack:
-                        heappush(stack, (*f_score[neighbor_node], neighbor_node.osmnx_node, neighbor_node))
+                    if neighbor_node not in history:
+                        history.add(neighbor_node)
+                        if f_score[neighbor_node].distance <= longest_distance:
+                            heappush(stack,
+                                (*f_score[neighbor_node],
+                                neighbor_node.osmnx_node,
+                                neighbor_node)
+                            )
         return None
 
     def _neighbours(self, current_node: Node, came_from: Dict[Node, CameFromData]) -> Generator[int, None, None]:
@@ -190,14 +199,62 @@ class AStarMetric:
 
         if key in self.cache_distance:
             return Metrics(0, 0, self.cache_distance[key])
-
-        d = self.com.getCuda2dDistance(
+        d = manhattan_dist(
             node_to_loc(self.graph, node),
             node_to_loc(self.graph, destination),
         )
+        # d = self.com.getCuda2dDistance(
+        #     node_to_loc(self.graph, node),
+        #     node_to_loc(self.graph, destination),
+        # )
         self.cache_distance[key] = d
         return Metrics(0, 0, d)
 
+_com = CommonFunctions()
+def manhattan_dist(l1: Location, l2: Location, bearing_angle: float = 0):
+    # source: https://medium.com/@simplyjk/why-manhattan-distance-formula-doesnt-apply-to-manhattan-7db0ebb1c5f6
+
+    lat1, lon1 = [l1.latitude], [l1.longitude]
+    lat2, lon2 = [l2.latitude], [l2.longitude]
+
+    # Pickup coordinates
+    p = np.stack([lat1, lon1], axis = 1)
+
+    # Dropoff coordinates
+    d = np.stack([lat2, lon2], axis = 1)
+
+    theta1 = np.radians(-bearing_angle)
+    theta2 = np.radians(bearing_angle)
+
+    ## Rotation matrix
+    R1 = np.array([[np.cos(theta1), np.sin(theta1)],
+                   [-np.sin(theta1), np.cos(theta1)]]
+                 )
+    R2 = np.array([[np.cos(theta2), np.sin(theta2)],
+                   [-np.sin(theta2), np.cos(theta2)]]
+                 )
+
+    # Rotate Pickup and Dropoff coordinates by -29 degress in World2
+    pT = R1 @ p.T
+    dT = R1 @ d.T
+
+    # Coordinates of Hinge point in the rotated world
+    vT = np.stack((pT[0,:], dT[1,:]))
+    # Coordinates of Hinge point in the real world
+    v = R2 @ vT
+    """ Finally,
+
+    Manhattan distance
+            =
+    Haversine dist between Pickup & Hingept
+            +
+    Haversine dist between Hinge pt & Dropoff location
+    """
+    origin_l = Location(p.T[0], p.T[1])
+    v_l = Location(v[0], v[1])
+    dest_l = Location(d.T[0], d.T[1])
+    return (_com.getCuda2dDistance(origin_l, v_l) +
+            _com.getCuda2dDistance(v_l, dest_l))
 
 class AStar:
     def __init__(self, graph, g, h) -> None:
