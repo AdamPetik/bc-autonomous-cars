@@ -81,6 +81,11 @@ class Statistics(metaclass=Singleton):
         self._mean_records[event_str] = new_mean
         self._mean_couter[event_str] = counter + 1
 
+    def reset(self) -> None:
+        self._timestamp_records.clear()
+        self._incremental_records.clear()
+        self._mean_records.clear()
+        self._mean_couter.clear()
 
     def save_json(
         self,
