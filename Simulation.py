@@ -118,6 +118,7 @@ def connect_to_bss(
 
 
 def main_run(config_dict: Dict[str, Any]):
+    Statistics().reset()
     config = dict_utils.to_object(config_dict)
     # exit()
     # Setting location that will be simulated - this is not used since we are
