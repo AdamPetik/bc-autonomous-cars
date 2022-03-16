@@ -3,7 +3,6 @@ from multiprocessing.synchronize import Lock as LockType
 import os
 from typing import Any, Dict, List
 
-from isort import file
 from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 from NFTAutonomousVehicles.entities.TaskSolver import TaskSolver
 from NFTAutonomousVehicles.radio_communication.radio_connection_handler import RadioConnectionHandler
@@ -16,7 +15,7 @@ from NFTAutonomousVehicles.resultCollectors.MainCollector import MainCollector
 from NFTAutonomousVehicles.taskProcessing.Task import Task
 from NFTAutonomousVehicles.taskProcessing.task_fifo_processor import TaskFIFOProcessor
 from NFTAutonomousVehicles.utils.sinr_map import SINRMap
-from NFTAutonomousVehicles.utils.run_utils import parallel_simulation_run
+from NFTAutonomousVehicles.utils.run_utils import parallel_simulation_run, file_lock
 from NFTAutonomousVehicles.utils import dict_utils
 from NFTAutonomousVehicles.utils.sinr_route_alg import SINRRouteALG
 from NFTAutonomousVehicles.utils.statistics import Statistics
@@ -118,7 +117,7 @@ def connect_to_bss(
         conn_handler.connect(vehicle.id, bs.id)
 
 
-def main_run(config_dict: Dict[str, Any], file_lock: LockType):
+def main_run(config_dict: Dict[str, Any]):
     config = dict_utils.to_object(config_dict)
     # exit()
     # Setting location that will be simulated - this is not used since we are

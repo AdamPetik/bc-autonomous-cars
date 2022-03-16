@@ -8,6 +8,9 @@ import os
 import copy
 
 
+file_lock = multiprocessing.Lock()
+
+
 def parallel_simulation_run(main_fun: Callable[[Dict[str, any]], None]) -> None:
     # parse arguments
     args = parse_args()
@@ -42,7 +45,7 @@ def parallel_simulation_run(main_fun: Callable[[Dict[str, any]], None]) -> None:
     # run as pool of workers
     file_lock = multiprocessing.Lock()
     with multiprocessing.Pool(processes=processes,) as pool:
-        pool.map(main_fun, (config_dicts, file_lock))
+        pool.map(main_fun, config_dicts)
 
 
 def preprocess_config(config_dict: Dict[str, Any]) -> List[Dict[str, Any]]:

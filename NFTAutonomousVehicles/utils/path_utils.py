@@ -161,7 +161,7 @@ def get_shortest_path(
     dest_node = map.getNearestNode(dest)
 
     p = ox.shortest_path(map.driveGraph, orig_node, dest_node)
-    return _convert_path(map, p), p
+    return convert_path(map, p), p
 
 
 def get_shortest_paths(
@@ -193,7 +193,7 @@ def get_shortest_paths(
         if break_condition is not None and break_condition(map, path):
             break
 
-        yield _convert_path(map, path), path
+        yield convert_path(map, path), path
 
 
 def location_from_path_generator(
