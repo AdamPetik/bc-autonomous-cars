@@ -1,0 +1,58 @@
+{
+    "result_dir": "results_dirsim2/sim3",
+    "result_name": "result",
+    "repeat": 1,
+    "comment": "15 bs 2000/4000 rbs",
+    "simulation": {
+        "dt": 0.5,
+        "steps": 1200,
+        "gui_timeout": 0.5,
+        "gui_enabled": false,
+        "processing_dt": 0.1,
+        "plot_map_and_sinr": false
+    },
+
+    "vehicles": {
+        "count": 60,
+        "type": 0,
+        "speed_ms": 7,
+        "task": {
+            "limit_time": 0.5,
+            "solving_time": 0.08,
+            "size_mb": 8,
+            "instructions": 20e6
+        }
+    },
+
+    "base_stations":{
+        "count": 10,
+        "min_radius": 200,
+        "location_file": "middleMap_15bs.json",
+        "ips": 3.6e9,
+        "bandwidth": 100e6,
+        "resource_blocks": 4000,
+        "tx_frequency": 2e9,
+        "tx_power": 0.1,
+        "coverage_radius": 500
+    },
+
+    "algorithm": {
+        "epsilon": 0.1,
+        "route_t_coef": 1.3
+    },
+
+    "range_params": {
+        "vehicles.type": {
+            "range": [0, 1, 2],
+            "name": "vehtype"
+        },
+        "vehicles.count": {
+            "range": [30, 60, 90, 120],
+            "name": "vehcount"
+        },
+        "base_stations.resource_blocks": {
+            "range": [2000, 4000],
+            "name": "rbscount"
+        }
+    }
+}
