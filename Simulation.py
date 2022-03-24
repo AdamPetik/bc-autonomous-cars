@@ -175,9 +175,10 @@ def main_run(config_dict: Dict[str, Any]):
         radius = config.base_stations.min_radius
         iismotion.getActorCollection("taskSolvers").generateTaskSolvers(count, radius)
         print(" - solvers generated")
-        filename = config.result_dir + '__' + config.result_name + '.json'
-        filename = filename.replace('/', '__')
-        taskSolvers.storeTaskSolvers(filename)
+        if dict_utils.path_get(config_dict, 'base_stations.save_locs', False):
+            filename = config.result_dir + '__' + config.result_name + '.json'
+            filename = filename.replace('/', '__')
+            taskSolvers.storeTaskSolvers(filename)
     else:
         taskSolvers.loadTaskSolversFromFile(config.base_stations.location_file)
     _config_task_solvers(taskSolvers, config.base_stations, secondsPerTick, logger)
