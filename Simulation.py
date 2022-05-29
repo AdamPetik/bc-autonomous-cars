@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 
 from NFTAutonomousVehicles.entities.AutonomousVehicle import AutonomousVehicle
 from NFTAutonomousVehicles.entities.TaskSolver import TaskSolver
+from NFTAutonomousVehicles.movement_strategy.varsa_movement_strategy import RoutingAlgorithmMovementStrategy, VaRSARouteAlg
 from NFTAutonomousVehicles.radio_communication.radio_connection_handler import RadioConnectionHandler
 from NFTAutonomousVehicles.fifo_processing.fifo_processor import ParallelFIFOsProcessing
 from NFTAutonomousVehicles.radio_communication.radio_communication_processor import SimpleBSRadioCommProcessor
@@ -117,6 +118,20 @@ def connect_to_bss(
         conn_handler.connect(vehicle.id, bs.id)
 
 
+def task_required_datarate(config):
+    task = config.vehicles.task
+    epsilon_ratio = config.algorithm.epsilon
+
+    relaxed_limit_time = task.limit_time * epsilon_ratio
+    relaxed_solving_time = task.solving_time * epsilon_ratio
+
+    max_single_transfer_time = (relaxed_limit_time - relaxed_solving_time) / 2
+    min_data_rate_mbps = task.size_in_megabytes / max_single_transfer_time
+
+    return min_data_rate_mbps
+
+
+
 def main_run(config_dict: Dict[str, Any]):
     Statistics().reset()
     config = dict_utils.to_object(config_dict)
@@ -204,6 +219,18 @@ def main_run(config_dict: Dict[str, Any]):
         )
         def vms(*args):
             return SINRAwareMovementStrategy(*args, route_alg, secondsPerTick)
+        vehicle_movement_strategy = vms
+    elif vehicles_type == 3: # VaRSA route selection algorithm
+        route_alg = VaRSARouteAlg(
+            iismotion.map,
+            normalization_dist=5,
+            t_coef=t_coef,
+            sinr_map=sinr_map,
+            required_datarate=task_required_datarate(config),
+            base_stations=list(taskSolvers.actorSet.values())
+        )
+        def vms(*args):
+            return RoutingAlgorithmMovementStrategy(*args, route_alg, secondsPerTick)
         vehicle_movement_strategy = vms
     else:
         raise Exception(f"unsupported vehicle type {vehicles_type}")

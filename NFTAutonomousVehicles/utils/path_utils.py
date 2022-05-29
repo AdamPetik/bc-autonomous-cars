@@ -155,7 +155,7 @@ def to_raw_path(locs: List[Location]) -> list:
 
 def get_shortest_path(
     map: Map, orig: Location, dest: Location
-) -> Union[List[Location], list]:
+) -> Tuple[List[Location], list]:
     """Get the shortest path between two nodes"""
     orig_node = map.getNearestNode(orig)
     dest_node = map.getNearestNode(dest)
