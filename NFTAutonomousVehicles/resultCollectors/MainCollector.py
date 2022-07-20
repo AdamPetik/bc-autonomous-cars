@@ -2,17 +2,29 @@ import os
 import sqlite3
 import datetime
 
+from NFTAutonomousVehicles.taskProcessing.Task import TaskStatus
+from NFTAutonomousVehicles.utils.statistics import IncrementalEvent, Statistics
+
 
 
 class MainCollector:
 
-    def __init__(self):
-        cache_dir = os.path.join('results', 'databaseFiles')
+    def __init__(self, dir: str = None, dbfilename: str = None):
+        if dir is None:
+            cache_dir = os.path.join('results', 'databaseFiles')
+        else:
+            cache_dir = os.path.join(dir, 'databaseFiles')
+
         if not os.path.exists(cache_dir):
             os.makedirs(cache_dir)
 
-        filename = cache_dir + "/" + str(datetime.datetime.now()).replace(" ","_").replace(":","") +".db"
-        self.conn = sqlite3.connect(filename)
+        if dbfilename is None:
+            filename = str(datetime.datetime.now()).replace(" ","_").replace(":","") +".db"
+            filepath = os.path.join(cache_dir, filename)
+        else:
+            filepath = os.path.join(cache_dir, dbfilename + '.db')
+
+        self.conn = sqlite3.connect(filepath)
         print("SQLITE connection ready" + sqlite3.version)
         self.createTables()
 
@@ -32,7 +44,7 @@ class MainCollector:
                                                 vehicle_id integer NOT NULL,
                                                 vehicle_type integer NOT NULL,
                                                 solver_id integer,
-                                                capacity_needed_to_solve integer NOT NULL,
+                                                instruction_count integer NOT NULL,
                                                 size_in_megabytes integer NOT NULL,
                                                 single_transfer_time real,
                                                 status_id integer NOT NULL,
@@ -47,7 +59,8 @@ class MainCollector:
                                                 nft_signed integer,
                                                 nft_valid_from TEXT,
                                                 nft_valid_to TEXT,
-                                                nft_reserved_cores_each_iteration int,
+                                                nft_reserved_ips int,
+                                                nft_reserved_rbs int,
                                                 FOREIGN KEY (status_id) REFERENCES task_state (status_id)
                                             ); """
 
@@ -92,35 +105,39 @@ class MainCollector:
         self.conn.commit()
 
     def logTask(self, task):
+        if task.status != TaskStatus.SOLVED:
+            Statistics().incremental_event(IncrementalEvent.DISCARDED_TASK)
         if task.solver is None:
             solver_id = "null"
         else:
             solver_id = task.solver.id
 
         if task.nft is None:
+            total_spent = task.getTotalTimeSpent() if task.getTotalTimeSpent() == 'null' else task.getTotalTimeSpent().total_seconds()
+            task.single_transfer_time = task.single_transfer_time if task.single_transfer_time is not None else 'null'
             insert_query = f"""INSERT INTO task
-                                (task_id, vehicle_id, vehicle_type, solver_id, capacity_needed_to_solve, size_in_megabytes, single_transfer_time,
+                                (task_id, vehicle_id, vehicle_type, solver_id, instruction_count, size_in_megabytes, single_transfer_time,
                                 status_id, created_at, deadline_at, deadline_interval, total_time_spent,
                                 received_by_task_solver_at, solved_by_task_solver_at, returned_to_creator_at,
-                                nft_id, nft_signed, nft_valid_from, nft_valid_to, nft_reserved_cores_each_iteration) 
+                                nft_id, nft_signed, nft_valid_from, nft_valid_to, nft_reserved_ips, nft_reserved_rbs) 
                                 VALUES 
-                                ({task.id},{task.vehicle.id},{task.vehicle.vehicle_type},{solver_id},{task.capacity_needed_to_solve},{task.size_in_megabytes},{task.single_transfer_time},
-                                {task.status.value},'{task.created_at}','{task.deadline_at}','{task.getDeadlineInterval()}', {task.getTotalTimeSpent()},
+                                ({task.id},{task.vehicle.id},{task.vehicle.vehicle_type},{solver_id},{task.instruction_count},{task.size_in_megabytes},{task.single_transfer_time},
+                                {task.status.value},'{task.created_at}','{task.deadline_at}','{task.getDeadlineInterval()}', {total_spent},
                                 '{task.received_by_task_solver_at}','{task.solved_by_task_solver_at}','{task.returned_to_creator_at}'
-                                ,null, null, null, null, null)"""
+                                ,null, null, null, null, null, null)"""
 
         else:
-
+            total_spent = task.getTotalTimeSpent() if task.getTotalTimeSpent() =='null' else task.getTotalTimeSpent().total_seconds()
             insert_query = f"""INSERT INTO task
-                                (task_id, vehicle_id, vehicle_type, solver_id, capacity_needed_to_solve, size_in_megabytes, single_transfer_time,
+                                (task_id, vehicle_id, vehicle_type, solver_id, instruction_count, size_in_megabytes, single_transfer_time,
                                 status_id, created_at, deadline_at, deadline_interval, total_time_spent,
                                 received_by_task_solver_at, solved_by_task_solver_at, returned_to_creator_at,
-                                nft_id, nft_signed, nft_valid_from, nft_valid_to, nft_reserved_cores_each_iteration) 
+                                nft_id, nft_signed, nft_valid_from, nft_valid_to, nft_reserved_ips, nft_reserved_rbs) 
                                 VALUES 
-                                ({task.id},{task.vehicle.id},{task.vehicle.vehicle_type},{solver_id},{task.capacity_needed_to_solve},{task.size_in_megabytes},{task.single_transfer_time},
-                                {task.status.value},'{task.created_at}','{task.deadline_at}','{task.getDeadlineInterval()}', {task.getTotalTimeSpent().total_seconds()},
+                                ({task.id},{task.vehicle.id},{task.vehicle.vehicle_type},{solver_id},{task.instruction_count},{task.size_in_megabytes},{task.single_transfer_time},
+                                {task.status.value},'{task.created_at}','{task.deadline_at}','{task.getDeadlineInterval()}', {total_spent},
                                 '{task.received_by_task_solver_at}','{task.solved_by_task_solver_at}','{task.returned_to_creator_at}'
-                                ,{task.nft.id},{task.nft.signed},'{task.nft.valid_from}','{task.nft.valid_to}',{task.nft.reserved_cores_each_iteration})"""
+                                ,{task.nft.id},{task.nft.signed},'{task.nft.valid_from}','{task.nft.valid_to}',{task.nft.reserved_ips},{task.nft.reserved_rbs})"""
 
         cursor = self.conn.cursor()
         # print(f"Insert: {insert_query}")
@@ -141,9 +158,9 @@ class MainCollector:
                             (
                             {vehicle.id},'{planing_at}', {number_of_routes_considered},
                             {shortest_route.index}, {shortest_route.missing_NFTs}, {shortest_route.route_step_count}, {shortest_route.route_length_in_meters},
-                            {len(shortest_route.segments_without_solvers)},{shortest_route.getMetrics()},
+                            {len(shortest_route.segments_without_solvers)},{shortest_route.getMetrics()[0]},
                             {best_route.index}, {best_route.missing_NFTs}, {best_route.route_step_count}, {best_route.route_length_in_meters},
-                            {len(best_route.segments_without_solvers)},{best_route.getMetrics()}
+                            {len(best_route.segments_without_solvers)},{best_route.getMetrics()[0]}
                             )"""
         cursor = self.conn.cursor()
         cursor.execute(insert_query)

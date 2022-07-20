@@ -5,7 +5,7 @@ from src.placeable.stationary.FemtoCell import FemtoCell
 import requests
 import json
 import os
-
+import numpy as np
 import os.path
 
 
@@ -13,24 +13,49 @@ class TaskSolverLoader:
     def __init__(self):
         self.com = CommonFunctions()
 
-    def getTaskSolvers(self,locationsTable, map, count, minRadius):
-        locations = []
+    def getTaskSolvers(self,locationsTable, map, count, minRadius, dt):
         madeSolvers = []
-        for i in range(0, count):
-            location = map.getRandomPoint()
-            while (self.com.getShortestDistanceFromLocations(locations, location) < minRadius):
-                location = map.getRandomPoint()
-            locations.append(location)
+        attempt = 0
+        success_condition = lambda solvers: len(solvers) == count
 
-            solver = TaskSolver(locationsTable, map)
-            x, y = map.mapGrid.getGridCoordinates(location)
-            location.setGridCoordinates(x, y)
-            solver.tableRow = locationsTable.insertNewActor(solver)
-            solver.setLocation(location)
-            madeSolvers.append(solver)
+        while not success_condition(madeSolvers) and attempt < 20:
+            attempt += 1
+            madeSolvers.reverse()
+            for s in madeSolvers:
+                locationsTable.table = np.delete(locationsTable.table, s.tableRow, 0)
+            madeSolvers = []
+            locations = []
+
+            for _ in range(0, count):
+                location = self._try_get_location(map, locations, minRadius, 1000)
+
+                if location is None:
+                    break;
+                locations.append(location)
+
+                solver = TaskSolver(locationsTable, map, dt)
+                x, y = map.mapGrid.getGridCoordinates(location)
+                location.setGridCoordinates(x, y)
+                solver.tableRow = locationsTable.insertNewActor(solver)
+                solver.setLocation(location)
+                madeSolvers.append(solver)
+
+        if not success_condition(madeSolvers):
+            raise Exception("Not able to generate random locations for base"
+                            f" stations. (min radius={minRadius}, bscount={count})")
         return madeSolvers
 
-    def loadTaskSolversFromFile(self,locationsTable, map, filename):
+    def _try_get_location(self, map, locations, minRadius, attempts=999999999):
+        location = map.getRandomPoint()
+        attempt = 0
+        while (self.com.getShortestDistanceFromLocations(locations, location) < minRadius):
+            if attempt > attempts:
+                return None
+            location = map.getRandomPoint()
+            attempt += 1
+        return location
+
+    def loadTaskSolversFromFile(self,locationsTable, map, filename, dt):
         madeSolvers = []
         if os.path.exists("iism_cache/taskSolverCache/" + filename):
             with open("iism_cache/taskSolverCache/" + filename) as cachedData:
@@ -41,7 +66,7 @@ class TaskSolverLoader:
                 location.longitude = item['longitude']
                 location.latitude = item['latitude']
 
-                taskSolver = TaskSolver(locationsTable, map)
+                taskSolver = TaskSolver(locationsTable, map, dt)
                 x, y = map.mapGrid.getGridCoordinates(location)
                 location.setGridCoordinates(x, y)
                 taskSolver.tableRow = locationsTable.insertNewActor(taskSolver)

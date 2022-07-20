@@ -1,0 +1,43 @@
+{
+    "result_dir": "results_autoveh/test_run_sinr6",
+    "result_name": "result",
+    "repeat": 1,
+
+    "simulation": {
+        "dt": 0.5,
+        "steps": 200,
+        "gui_timeout": 0.5,
+        "gui_enabled": false,
+        "processing_dt": 0.1,
+        "plot_map_and_sinr": false
+    },
+
+    "vehicles":{
+        "count": 10,
+        "type": 0,
+        "speed_ms": 10,
+        "task": {
+            "limit_time": 0.5,
+            "solving_time": 0.1,
+            "size_mb": 0.2,
+            "instructions": 1e6
+        }
+    },
+
+    "base_stations":{
+        "count": 10,
+        "min_radius": 200,
+        "location_file": "middleMap3.json",
+        "ips": 3.6e9,
+        "bandwidth": 100e6,
+        "resource_blocks": 8000,
+        "tx_frequency": 2e9,
+        "tx_power": 0.1,
+        "coverage_radius": 500
+    },
+
+    "algorithm": {
+        "epsilon": 0.1
+    }
+
+}

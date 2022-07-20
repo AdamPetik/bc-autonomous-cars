@@ -1,4 +1,3 @@
-from NFTAutonomousVehicles.entities.TaskSolver import TaskSolver
 import enum
 from src.common.SimulationClock import *
 from src.common.UniqueID import UniqueID
@@ -16,15 +15,16 @@ class TaskStatus(enum.Enum):
 class Task:
 
     def __init__(self, vehicle=None, solver=None,
-                 transfer_rate=None, size_in_megabytes=None, capacity_needed_to_solve=None, solving_time=None, limit_time=None,
-                 created_at=None, deadline_at=None,
-                 nft=None,
-                 name=None):
+                 transfer_rate=None, size_in_megabytes=None,
+                 instruction_count=None, solving_time=None,
+                 limit_time=None, created_at=None,
+                 deadline_at=None, nft=None, name=None
+    ):
         uid = UniqueID()
         self.id = uid.getId()
         self.vehicle = vehicle
         self.solver = solver
-        self.capacity_needed_to_solve = capacity_needed_to_solve
+        self.instruction_count = instruction_count
         self.solving_time = solving_time
         self.limit_time = limit_time
 
@@ -50,3 +50,11 @@ class Task:
 
     def getDeadlineInterval(self):
         return self.deadline_at - self.created_at
+
+    def timed_out(self, timestamp, logger=None) -> bool:
+        if self.deadline_at < timestamp:
+            self.status = TaskStatus.TASK_TIMED_OUT
+            if logger is not None:
+                logger.logTask(self)
+            return True
+        return False

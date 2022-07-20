@@ -29,7 +29,12 @@ class IISMotion:
         self.com = CommonFunctions()
         self.movableCollectionsSet = {}
         self.guiEnabled = guiEnabled
-        self.frontend = FrontendServer()
+
+        if guiEnabled:
+            self.frontend = FrontendServer()
+        else:
+            self.frontend = None
+
         self.mapGrid = MapGrid(radius * 2, gridRows, self.movableCollectionsSet, self.map.latitudeInterval[0],
                                self.map.latitudeInterval[1], self.map.longitudeInterval[0],
                                self.map.longitudeInterval[1])
